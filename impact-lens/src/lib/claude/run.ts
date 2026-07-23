@@ -16,6 +16,8 @@ const MAX_STDOUT_BYTES = 1_000_000;
 const MAX_STDERR_BYTES = 128_000;
 const MAX_PACKET_BYTES = 2_000_000;
 const KILL_GRACE_MS = 1_500;
+const HEALTH_CHECK_TIMEOUT_MS = 10_000;
+const healthyExecutables = new Map<string, Promise<string>>();
 
 export type ClaudeRunErrorCode =
   | "CLI_NOT_FOUND"
@@ -233,7 +235,12 @@ function appendWithCap(
   return { value: Buffer.concat([current, chunk]), exceeded: false };
 }
 
-async function runProcess(executable: string, args: string[], runDirectory: string): Promise<string> {
+async function runProcess(
+  executable: string,
+  args: string[],
+  runDirectory: string,
+  timeoutMs = configuredTimeout(),
+): Promise<string> {
   return new Promise((resolvePromise, rejectPromise) => {
     let stdout: Buffer = Buffer.alloc(0);
     let stderr: Buffer = Buffer.alloc(0);
@@ -333,8 +340,35 @@ async function runProcess(executable: string, args: string[], runDirectory: stri
           retryable: true,
         }),
       );
-    }, configuredTimeout());
+    }, timeoutMs);
   });
+}
+
+/** Confirms that the resolved Claude Code binary can start before analysis begins. */
+export async function verifyClaudeExecutable(
+  executable: string,
+  versionArgs: string[] = ["--version"],
+): Promise<string> {
+  const cacheKey = `${executable}\0${versionArgs.join("\0")}`;
+  const cached = healthyExecutables.get(cacheKey);
+  if (cached) return cached;
+
+  const check = runProcess(executable, versionArgs, process.cwd(), HEALTH_CHECK_TIMEOUT_MS)
+    .then((stdout) => {
+      const version = stdout.trim();
+      if (!version) {
+        throw new ClaudeRunError("INVALID_OUTPUT", "Claude Code did not report a version.", {
+          retryable: true,
+        });
+      }
+      return version;
+    })
+    .catch((error) => {
+      healthyExecutables.delete(cacheKey);
+      throw error;
+    });
+  healthyExecutables.set(cacheKey, check);
+  return check;
 }
 
 export async function runClaudeStructured<T>(input: RunClaudeStructuredInput<T>): Promise<T> {
@@ -381,6 +415,7 @@ export async function runClaudeStructured<T>(input: RunClaudeStructuredInput<T>)
   }
 
   const executable = await resolveClaudeExecutable();
+  await verifyClaudeExecutable(executable);
   const stdout = await runProcess(executable, args, runDirectory);
   return parseClaudeStructuredOutput(stdout, input.schema);
 }
