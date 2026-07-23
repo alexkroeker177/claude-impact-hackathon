@@ -93,7 +93,15 @@ export async function runAnalysis(input: RunAnalysisInput): Promise<DashboardAna
     ? metrics.reduce((s, m) => s + m.result.coverage, 0) / metrics.length
     : 0;
   const flagged = warnings.filter((w) => w.severity !== "info").length;
-  const assessment = `${metrics.length} KPI${metrics.length === 1 ? "" : "s"} computed at ${Math.round(meanCoverage * 100)}% average coverage; ${flagged} review signal${flagged === 1 ? "" : "s"} flagged.`;
+  const coverageSentence =
+    meanCoverage >= 0.95
+      ? "using nearly all of the data"
+      : `using ${Math.round(meanCoverage * 100)}% of the data (the rest was empty or unreadable)`;
+  const assessment = `We computed ${metrics.length} key figure${metrics.length === 1 ? "" : "s"} from your files, ${coverageSentence}.${
+    flagged === 0
+      ? " No data-quality issues were found."
+      : ` ${flagged} thing${flagged === 1 ? "" : "s"} need${flagged === 1 ? "s" : ""} a closer look — see “Needs review”.`
+  }`;
 
   return {
     generatedAt: new Date().toISOString(),

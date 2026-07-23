@@ -39,6 +39,7 @@ describe("runAnalysis", () => {
           id: "m-total",
           name: "Total beneficiaries reached",
           description: "Sum of beneficiaries_reached across all sites.",
+          howCalculated: null,
           formula: { kind: "atomic", expr: { op: "sum", ref: { sourceId: "unseen-csv", fieldId: "f2" }, filters: [] } },
           groupBy: null,
           unit: "people",
@@ -50,6 +51,7 @@ describe("runAnalysis", () => {
           id: "m-by-region",
           name: "Beneficiaries by region",
           description: "Sum of beneficiaries_reached grouped by region.",
+          howCalculated: null,
           formula: { kind: "atomic", expr: { op: "sum", ref: { sourceId: "unseen-csv", fieldId: "f2" }, filters: [] } },
           groupBy: { sourceId: "unseen-csv", fieldId: "f1" },
           unit: "people",
@@ -88,7 +90,7 @@ describe("runAnalysis", () => {
     expect(dashboard.chart).not.toBeNull();
     expect(["bar", "line", "funnel"]).toContain(dashboard.chart?.type);
     expect(dashboard.plan.fiveDimensions.what.status).toBe("identified");
-    expect(dashboard.warnings.some((w) => /missing/i.test(w.message))).toBe(true);
+    expect(dashboard.warnings.some((w) => /empty/i.test(w.message))).toBe(true);
 
     const rowNumbers = new Set(table.rows.map((r) => r.rowNumber));
     for (const { result } of dashboard.metrics) {

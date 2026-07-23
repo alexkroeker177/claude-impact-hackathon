@@ -60,6 +60,7 @@ function makePlan(): SemanticPlan {
         id: "m1_avg_income",
         name: "Average income",
         description: "Average reported income across respondents.",
+        howCalculated: null,
         formula: {
           kind: "atomic",
           expr: { op: "average", ref: { sourceId: "s0", fieldId: "f2" }, filters: [] },

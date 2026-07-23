@@ -5,12 +5,13 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  LabelList,
   Line,
   LineChart,
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, Info, OctagonAlert, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, OctagonAlert } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EvidenceDrawer } from "@/components/evidence-drawer";
+import { buildInsights, type Insight } from "@/lib/analysis/explain";
 import type { CoverageStatus, MetricDefinition } from "@/lib/semantic/schema";
 import type { AnalysisWarning, DashboardAnalysis, MetricResult } from "@/lib/analysis/types";
 
@@ -35,12 +37,16 @@ function formatValue(value: number | null, unit: string | null): string {
   return unit ? `${formatted} ${unit}` : formatted;
 }
 
-const DIMENSIONS: Array<{ key: keyof DashboardAnalysis["plan"]["fiveDimensions"]; label: string }> = [
-  { key: "what", label: "What" },
-  { key: "who", label: "Who" },
-  { key: "howMuch", label: "How much" },
-  { key: "contribution", label: "Contribution" },
-  { key: "risk", label: "Risk" },
+const DIMENSIONS: Array<{
+  key: keyof DashboardAnalysis["plan"]["fiveDimensions"];
+  label: string;
+  question: string;
+}> = [
+  { key: "what", label: "What", question: "What changed?" },
+  { key: "who", label: "Who", question: "Who was affected?" },
+  { key: "howMuch", label: "How much", question: "How big was the change?" },
+  { key: "contribution", label: "Contribution", question: "Would it have happened anyway?" },
+  { key: "risk", label: "Risk", question: "How solid is the evidence?" },
 ];
 
 const STATUS_BADGE: Record<CoverageStatus, string> = {
@@ -50,9 +56,9 @@ const STATUS_BADGE: Record<CoverageStatus, string> = {
 };
 
 const STATUS_LABEL: Record<CoverageStatus, string> = {
-  identified: "Identified",
-  partial: "Partial",
-  not_found: "Not found",
+  identified: "Answered",
+  partial: "Partly answered",
+  not_found: "Not answered",
 };
 
 const SEVERITY_ICON = { info: Info, warning: AlertTriangle, critical: OctagonAlert };
@@ -62,17 +68,18 @@ const SEVERITY_COLOR = {
   critical: "text-red-600",
 };
 
+const INSIGHT_ICON: Record<Insight["tone"], { icon: typeof Info; color: string }> = {
+  good: { icon: CheckCircle2, color: "text-emerald-600" },
+  watch: { icon: AlertTriangle, color: "text-amber-600" },
+  problem: { icon: OctagonAlert, color: "text-red-600" },
+};
+
 function WarningRow({ warning }: { warning: AnalysisWarning }) {
   const Icon = SEVERITY_ICON[warning.severity];
   return (
     <div className="flex items-start gap-3 rounded-lg bg-slate-50 px-3 py-2.5">
       <Icon className={`mt-0.5 size-4 shrink-0 ${SEVERITY_COLOR[warning.severity]}`} />
       <p className="text-sm text-slate-700">{warning.message}</p>
-      {warning.sourceId && (
-        <Badge variant="outline" className="ml-auto shrink-0">
-          {warning.sourceId}
-        </Badge>
-      )}
     </div>
   );
 }
@@ -82,7 +89,9 @@ export function Dashboard({ data, project }: DashboardProps) {
 
   const dataWarnings = data.warnings.filter((w) => w.scope === "data");
   const projectWarnings = data.warnings.filter((w) => w.scope === "project");
+  const flaggedCount = data.warnings.filter((w) => w.severity !== "info").length;
 
+  const insights = buildInsights(data);
   const notFoundDimensions = DIMENSIONS.filter((d) => data.plan.fiveDimensions[d.key].status === "not_found");
   const lowCoverageMetrics = data.metrics.filter((m) => m.result.coverage < 0.6);
 
@@ -110,17 +119,32 @@ export function Dashboard({ data, project }: DashboardProps) {
       </div>
 
       <Card className="border-l-4 border-l-emerald-600">
-        <CardContent className="flex items-start gap-3">
-          <Sparkles className="mt-0.5 size-4 shrink-0 text-emerald-700" />
-          <p className="text-base leading-7 text-slate-800">{data.assessment}</p>
-        </CardContent>
+        <CardHeader>
+          <CardTitle className="text-base">What this data says</CardTitle>
+          <CardDescription className="text-sm leading-6 text-slate-700">{data.assessment}</CardDescription>
+        </CardHeader>
+        {insights.length > 0 && (
+          <CardContent className="flex flex-col gap-2.5">
+            {insights.map((insight, i) => {
+              const { icon: Icon, color } = INSIGHT_ICON[insight.tone];
+              return (
+                <div key={i} className="flex items-start gap-2.5">
+                  <Icon className={`mt-0.5 size-4 shrink-0 ${color}`} />
+                  <p className="text-sm leading-6 text-slate-800">{insight.text}</p>
+                </div>
+              );
+            })}
+          </CardContent>
+        )}
       </Card>
 
       <Tabs defaultValue="overall">
         <TabsList>
-          <TabsTrigger value="overall">Overall</TabsTrigger>
-          <TabsTrigger value="warnings">Early warnings</TabsTrigger>
-          <TabsTrigger value="outlook">Outlook</TabsTrigger>
+          <TabsTrigger value="overall">Overview</TabsTrigger>
+          <TabsTrigger value="warnings">
+            Needs review{flaggedCount > 0 ? ` (${flaggedCount})` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="outlook">What&rsquo;s missing</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overall" className="mt-6 flex flex-col gap-6">
@@ -138,10 +162,13 @@ export function Dashboard({ data, project }: DashboardProps) {
                       {formatValue(result.value, definition.unit)}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex items-center gap-2 text-xs text-slate-500">
-                    <span>{Math.round(result.coverage * 100)}% coverage</span>
-                    <span>·</span>
-                    <span>{Math.round(definition.confidence * 100)}% confidence</span>
+                  <CardContent className="flex h-full flex-col justify-between gap-2">
+                    <p className="line-clamp-3 text-xs leading-5 text-slate-600">
+                      {definition.description}
+                    </p>
+                    <p className="text-xs font-medium text-emerald-700">
+                      How is this calculated? →
+                    </p>
                   </CardContent>
                 </Card>
               </button>
@@ -155,12 +182,17 @@ export function Dashboard({ data, project }: DashboardProps) {
                 <CardDescription>{data.chart.summary}</CardDescription>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={{ value: { label: "Value", color: "#047857" } }} className="aspect-auto h-72 w-full">
+                <ChartContainer config={{ value: { label: "People", color: "#047857" } }} className="aspect-auto h-72 w-full">
                   {data.chart.type === "line" ? (
                     <LineChart data={data.chart.points}>
                       <CartesianGrid vertical={false} />
                       <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                      <YAxis tickLine={false} axisLine={false} width={48} />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        width={56}
+                        tickFormatter={(v: number) => compactFormat.format(v)}
+                      />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Line type="monotone" dataKey="value" stroke="#047857" strokeWidth={2} dot />
                     </LineChart>
@@ -168,21 +200,42 @@ export function Dashboard({ data, project }: DashboardProps) {
                     <BarChart
                       data={data.chart.points}
                       layout={data.chart.type === "funnel" ? "vertical" : "horizontal"}
+                      margin={data.chart.type === "funnel" ? { right: 64 } : undefined}
                     >
                       <CartesianGrid vertical={data.chart.type !== "funnel"} horizontal={data.chart.type === "funnel"} />
                       {data.chart.type === "funnel" ? (
                         <>
-                          <XAxis type="number" tickLine={false} axisLine={false} />
+                          <XAxis
+                            type="number"
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(v: number) => compactFormat.format(v)}
+                          />
                           <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={100} />
                         </>
                       ) : (
                         <>
                           <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                          <YAxis tickLine={false} axisLine={false} width={48} />
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            width={56}
+                            tickFormatter={(v: number) => compactFormat.format(v)}
+                          />
                         </>
                       )}
                       <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="value" fill="#047857" radius={4} />
+                      <Bar dataKey="value" fill="#047857" radius={4}>
+                        {data.chart.type === "funnel" && (
+                          <LabelList
+                            dataKey="value"
+                            position="right"
+                            className="fill-slate-600"
+                            fontSize={12}
+                            formatter={(v) => compactFormat.format(Number(v))}
+                          />
+                        )}
+                      </Bar>
                     </BarChart>
                   )}
                 </ChartContainer>
@@ -191,16 +244,20 @@ export function Dashboard({ data, project }: DashboardProps) {
           )}
 
           <section>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+            <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
               Five Dimensions of Impact
             </h3>
+            <p className="mb-3 text-sm text-slate-500">
+              The five questions every impact report should answer — and whether this data answers them.
+            </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              {DIMENSIONS.map(({ key, label }) => {
+              {DIMENSIONS.map(({ key, label, question }) => {
                 const entry = data.plan.fiveDimensions[key];
                 return (
                   <Card key={key} size="sm">
-                    <CardContent className="flex flex-col items-start gap-2">
+                    <CardContent className="flex flex-col items-start gap-1.5">
                       <span className="text-sm font-medium text-slate-900">{label}</span>
+                      <span className="text-xs text-slate-500">{question}</span>
                       <Badge className={STATUS_BADGE[entry.status]}>{STATUS_LABEL[entry.status]}</Badge>
                     </CardContent>
                   </Card>
@@ -226,25 +283,33 @@ export function Dashboard({ data, project }: DashboardProps) {
         </TabsContent>
 
         <TabsContent value="warnings" className="mt-6 flex flex-col gap-6">
+          <p className="text-sm text-slate-600">
+            Figures the checks flagged as inconsistent, implausible or thin. Each one names its source file — nothing
+            was auto-corrected.
+          </p>
           <section>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">Data</h3>
-            {dataWarnings.length === 0 ? (
-              <p className="text-sm text-slate-400">No data-quality issues detected.</p>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+              In the numbers
+            </h3>
+            {projectWarnings.length === 0 ? (
+              <p className="text-sm text-slate-400">Nothing flagged — the reported figures are consistent.</p>
             ) : (
               <div className="flex flex-col gap-2">
-                {dataWarnings.map((w) => (
+                {projectWarnings.map((w) => (
                   <WarningRow key={w.id} warning={w} />
                 ))}
               </div>
             )}
           </section>
           <section>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">Project</h3>
-            {projectWarnings.length === 0 ? (
-              <p className="text-sm text-slate-400">No project-level review signals.</p>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+              In the source files
+            </h3>
+            {dataWarnings.length === 0 ? (
+              <p className="text-sm text-slate-400">Nothing flagged — the files parsed cleanly.</p>
             ) : (
               <div className="flex flex-col gap-2">
-                {projectWarnings.map((w) => (
+                {dataWarnings.map((w) => (
                   <WarningRow key={w.id} warning={w} />
                 ))}
               </div>
@@ -258,22 +323,22 @@ export function Dashboard({ data, project }: DashboardProps) {
               <EmptyMedia variant="icon">
                 <Info className="size-4" />
               </EmptyMedia>
-              <EmptyTitle>Insufficient evidence for outlook scoring</EmptyTitle>
+              <EmptyTitle>What would make this analysis stronger</EmptyTitle>
               <EmptyDescription>
-                ImpactLens does not forecast or score trajectories. Here is what would be needed:
+                ImpactLens never forecasts or fills gaps with guesses. To say more, the data would need:
               </EmptyDescription>
             </EmptyHeader>
             <div className="flex w-full max-w-md flex-col gap-2 text-left text-sm text-slate-600">
               {notFoundDimensions.map((d) => (
-                <p key={d.key}>· {d.label} coverage is not identified in the current data.</p>
+                <p key={d.key}>· An answer to &ldquo;{d.question}&rdquo; — nothing in the data covers it yet.</p>
               ))}
               {lowCoverageMetrics.map((m) => (
                 <p key={m.definition.id}>
-                  · &ldquo;{m.definition.name}&rdquo; needs more complete records ({Math.round(m.result.coverage * 100)}% coverage today).
+                  · More complete records for &ldquo;{m.definition.name}&rdquo; (only {Math.round(m.result.coverage * 100)}% of rows were usable).
                 </p>
               ))}
               {notFoundDimensions.length === 0 && lowCoverageMetrics.length === 0 && (
-                <p>· A comparison group or baseline period, to support a trend claim.</p>
+                <p>· A comparison group or baseline period, to support a claim that the programme caused the change.</p>
               )}
             </div>
           </Empty>

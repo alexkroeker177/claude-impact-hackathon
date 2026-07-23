@@ -29,6 +29,7 @@ describe("evaluateMetric", () => {
       id: "m-sum",
       name: "Total amount",
       description: "",
+      howCalculated: null,
       formula: { kind: "atomic", expr: { op: "sum", ref: { sourceId: "s0", fieldId: "f1" }, filters: [] } },
       groupBy: null,
       unit: null,
@@ -49,6 +50,7 @@ describe("evaluateMetric", () => {
       id: "m-ratio",
       name: "Zero-denominator ratio",
       description: "",
+      howCalculated: null,
       formula: {
         kind: "ratio",
         numerator: { op: "sum", ref: { sourceId: "s0", fieldId: "f1" }, filters: [] },

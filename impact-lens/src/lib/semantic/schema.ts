@@ -37,6 +37,8 @@ export const metricDefinitionSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string(),
+  /** Plain-language explanation of how the number is computed. When null the UI derives one from the formula. */
+  howCalculated: z.string().nullable().default(null),
   formula: formulaSchema,
   /** Optional single group-by field -> produces a series (chart input). */
   groupBy: fieldRefSchema.nullable(),

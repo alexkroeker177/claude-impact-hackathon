@@ -178,7 +178,13 @@ function exampleRows(recs: HarmonizedRecord[]): Array<{ sourceId: string; rowNum
 export function mapHarmonized(
   records: HarmonizedRecord[],
   anomalies: HarmonizedAnomaly[],
-  opts: { projectName: string; funnelPrefix?: string; scope?: "portfolio" | "org" } = { projectName: "Harmonized portfolio" },
+  opts: {
+    projectName: string;
+    funnelPrefix?: string;
+    scope?: "portfolio" | "org";
+    /** Canonical funnel-stage order (metric ids minus prefix). Stages not listed sort last by size. */
+    stageOrder?: string[];
+  } = { projectName: "Harmonized portfolio" },
 ): { profiles: SourceProfile[]; plan: SemanticPlan; dashboard: DashboardAnalysis } {
   const prefix = opts.funnelPrefix ?? "funnel.";
   const scope = opts.scope ?? "portfolio";
@@ -191,12 +197,17 @@ export function mapHarmonized(
   const scopeWord = scope === "org" ? "this organisation" : "the portfolio";
   const perWord = scope === "org" ? "per wave" : "per organisation";
 
-  // Funnel stages discovered by prefix; ordered by descending latest-wave total (funnel property).
+  // Funnel stages discovered by prefix. Ordered canonically when a stage order is
+  // supplied (so the chart reads top-of-funnel -> deepest), else by descending total.
   const stageIds = [...new Set(records.filter((r) => r.metric.startsWith(prefix) && !r.metric.includes(".", prefix.length)).map((r) => r.metric))];
+  const orderIndex = (id: string): number => {
+    const idx = (opts.stageOrder ?? []).indexOf(id.slice(prefix.length));
+    return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
+  };
   const stages = stageIds
     .map((id) => ({ id, ...latestSum(records, id) }))
     .filter((s) => s.orgs > 0)
-    .sort((a, b) => b.total - a.total);
+    .sort((a, b) => orderIndex(a.id) - orderIndex(b.id) || b.total - a.total);
 
   const metrics: Array<{ definition: MetricDefinition; result: MetricResult }> = [];
 
@@ -211,7 +222,9 @@ export function mapHarmonized(
       {
         id: "m-orgs",
         name: "Organisations tracked",
-        description: "Distinct organisations resolved across all files and waves by entity resolution.",
+        description: "How many different organisations appear in this data, after matching up name variations across files.",
+        howCalculated:
+          "Every record was matched to an organisation using names, contact people and email domains, then the distinct organisations were counted.",
         formula: { kind: "atomic", expr: { op: "distinct_count", ref: { sourceId: firstSource, fieldId: "org" }, filters: [] } },
         groupBy: null,
         unit: "organisations",
@@ -251,8 +264,14 @@ export function mapHarmonized(
       pushMetric(
         {
           id,
-          name: i === 0 ? `People reached — ${pretty}` : `Deep impact — ${pretty}`,
-          description: `Latest reported ${stage.id} value for ${scopeWord}${scope === "portfolio" ? ", summed across the portfolio" : ""}.`,
+          name: i === 0 ? "People reached" : "Deepest impact",
+          description:
+            i === 0
+              ? `How many people ${scopeWord} reached at the widest point of its work (the “${pretty}” stage), per the most recent report.`
+              : `How many people reached the deepest stage of change reported (“${pretty}”) — the strongest impact ${scopeWord} claims.`,
+          howCalculated: `Takes the most recent “${pretty}” figure reported ${perWord}${
+            scope === "portfolio" ? " and adds them up across organisations" : ""
+          }. The number is used exactly as reported — nothing is modelled or extrapolated.`,
           formula: { kind: "atomic", expr: { op: "sum", ref, filters: [] } },
           groupBy: null,
           unit: "people",
@@ -286,8 +305,12 @@ export function mapHarmonized(
   pushMetric(
     {
       id: "m-evidence",
-      name: "Measured or calculated evidence",
-      description: "Share of all harmonized records graded A (measured) or B (calculated), rather than estimated, doubtful or not reported.",
+      name: "Data reliability",
+      description:
+        "How much of this data you can actually trust: the share of figures that were properly measured or calculated, rather than estimated or guessed.",
+      howCalculated: `Every figure was graded for how it was obtained: A = measured, B = calculated from measurements, C = estimated, D = doubtful, N = not reported. This is the share graded A or B (${measured.length.toLocaleString(
+        "en-US",
+      )} of ${records.length.toLocaleString("en-US")} figures).`,
       formula: { kind: "atomic", expr: { op: "count", ref: { sourceId: firstSource, fieldId: "grade" }, filters: [{ ref: { sourceId: firstSource, fieldId: "grade" }, op: "not_empty", value: null }] } },
       groupBy: null,
       unit: "%",
@@ -318,34 +341,77 @@ export function mapHarmonized(
     },
   );
 
+  const prettyStage = (id: string) => {
+    const label = id.slice(prefix.length);
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  };
+  const funnelBroken = stages.some((s, i) => i > 0 && s.total > stages[i - 1].total);
   const chart: ChartSpec | null =
     stages.length >= 2
       ? {
           type: "funnel",
-          title: `Impact funnel — latest wave ${perWord}`,
+          title: "From first contact to lasting change",
           metricId: metrics[1]?.definition.id ?? "m-orgs",
           points: stages.map((s) => ({
-            label: s.id.slice(prefix.length),
+            label: prettyStage(s.id),
             value: s.total,
           })),
-          summary: `Reach narrows from ${Math.round(stages[0].total).toLocaleString("en-US")} (${stages[0].id.slice(prefix.length)}) to ${Math.round(stages[stages.length - 1].total).toLocaleString("en-US")} (${stages[stages.length - 1].id.slice(prefix.length)}) across ${stages.length} stages.`,
+          summary: funnelBroken
+            ? `Something is off: a later stage reports more people than an earlier one — usually a reporting error, not real growth. See “Needs review”.`
+            : `${Math.round(stages[0].total).toLocaleString("en-US")} people were reached at the “${prettyStage(stages[0].id)}” stage; ${Math.round(stages[stages.length - 1].total).toLocaleString("en-US")} made it to “${prettyStage(stages[stages.length - 1].id)}”, the deepest stage of change.`,
         }
       : null;
 
-  const warnings: AnalysisWarning[] = anomalies.slice(0, 100).map((a, i) => ({
-    id: `a${i + 1}`,
-    scope: a.kind === "funnel_monotonicity" || a.kind === "outlier" ? "project" : "data",
-    severity: a.kind === "negative_value" ? "critical" : a.kind === "duplicate_conflict" ? "info" : "warning",
-    message: `${a.kind.replace(/_/g, " ")}: ${a.detail} (${a.org_id}, ${a.date})`,
-    sourceId: slug(a.source_file),
-    fieldRefs: [],
-  }));
+  // Anomalies from the harmonization audit, rewritten as plain-language review items.
+  const humanize = (a: HarmonizedAnomaly): { severity: AnalysisWarning["severity"]; message: string } => {
+    const where = `${a.source_file}, ${a.date}`;
+    switch (a.kind) {
+      case "funnel_monotonicity":
+        return {
+          severity: "warning",
+          message: `Numbers don't add up: ${a.detail}. A later stage should never exceed an earlier one — likely a reporting or unit mix-up. Check ${where}.`,
+        };
+      case "outlier":
+        return {
+          severity: "warning",
+          message: `Unusually large value: ${a.detail}. Worth double-checking against the source (${where}).`,
+        };
+      case "negative_value":
+        return {
+          severity: "critical",
+          message: `Impossible figure: ${a.detail}. Counts can't be negative — this needs correcting (${where}).`,
+        };
+      case "duplicate_conflict":
+        return {
+          severity: "info",
+          message: `Two files disagree: ${a.detail}. The better-documented value was kept (${where}).`,
+        };
+      case "parse_failure":
+        return {
+          severity: "warning",
+          message: `A value couldn't be read: ${a.detail} (${where}).`,
+        };
+      default:
+        return { severity: "warning", message: `${a.kind.replace(/_/g, " ")}: ${a.detail} (${where}).` };
+    }
+  };
+  const warnings: AnalysisWarning[] = anomalies.slice(0, 100).map((a, i) => {
+    const { severity, message } = humanize(a);
+    return {
+      id: `a${i + 1}`,
+      scope: a.kind === "funnel_monotonicity" || a.kind === "outlier" ? "project" : "data",
+      severity,
+      message: scope === "org" ? message : `${message.slice(0, -1)} — ${a.org_id}.`,
+      sourceId: slug(a.source_file),
+      fieldRefs: [],
+    };
+  });
   if (anomalies.length > 100) {
     warnings.push({
       id: "a-more",
       scope: "data",
       severity: "info",
-      message: `${anomalies.length - 100} further review signals omitted here; full list in the harmonization audit artifacts.`,
+      message: `${anomalies.length - 100} more review items not shown here — the full list is in the harmonization audit.`,
       sourceId: null,
       fieldRefs: [],
     });
@@ -403,10 +469,21 @@ export function mapHarmonized(
     ],
   };
 
-  const meanCoverage = metrics.length
-    ? metrics.reduce((s, m) => s + m.result.coverage, 0) / metrics.length
-    : 0;
-  const assessment = `${metrics.length} KPIs computed at ${Math.round(meanCoverage * 100)}% average coverage from ${records.length.toLocaleString("en-US")} harmonized records; ${Math.round((measured.length / records.length) * 100)}% carry measured or calculated evidence; ${anomalies.length} review signals flagged.`;
+  const measuredPct = Math.round((measured.length / records.length) * 100);
+  const reachSentence =
+    stages.length >= 2
+      ? funnelBroken
+        ? " Its funnel numbers contradict each other — a later stage reports more people than an earlier one, which points to a reporting error."
+        : ` It reached ${Math.round(stages[0].total).toLocaleString("en-US")} people at its widest and ${Math.round(stages[stages.length - 1].total).toLocaleString("en-US")} at its deepest stage of change.`
+      : "";
+  const issueSentence =
+    anomalies.length === 0
+      ? " No data-quality issues were found."
+      : ` ${anomalies.length} figure${anomalies.length === 1 ? "" : "s"} need${anomalies.length === 1 ? "s" : ""} a closer look — see “Needs review”.`;
+  const assessment =
+    scope === "org"
+      ? `This organisation reported ${records.length.toLocaleString("en-US")} figures across ${waves} reporting wave${waves === 1 ? "" : "s"} (${dates[0]} – ${dates[dates.length - 1]}).${reachSentence} ${measuredPct}% of its figures were properly measured or calculated rather than estimated.${issueSentence}`
+      : `${orgIds.size} organisations reported ${records.length.toLocaleString("en-US")} figures between ${dates[0]} and ${dates[dates.length - 1]}.${reachSentence} ${measuredPct}% of all figures were properly measured or calculated rather than estimated.${issueSentence}`;
 
   const dashboard: DashboardAnalysis = {
     generatedAt: new Date().toISOString(),
@@ -441,7 +518,7 @@ export function mapHarmonizedByOrg(
   records: HarmonizedRecord[],
   anomalies: HarmonizedAnomaly[],
   registry: OrgRegistryEntry[] = [],
-  opts: { funnelPrefix?: string } = {},
+  opts: { funnelPrefix?: string; stageOrder?: string[] } = {},
 ): OrgProject[] {
   const nameById = new Map(registry.map((o) => [o.org_id, o.canonical_name]));
   const cohortsById = new Map(registry.map((o) => [o.org_id, o.cohorts]));
@@ -458,6 +535,7 @@ export function mapHarmonizedByOrg(
     const { profiles, plan, dashboard } = mapHarmonized(orgRecords, orgAnomalies, {
       projectName,
       funnelPrefix: opts.funnelPrefix,
+      stageOrder: opts.stageOrder,
       scope: "org",
     });
     projects.push({

@@ -137,10 +137,13 @@ async function persistDashboard(input: {
   return project.id;
 }
 
+/** Canonical 5-level funnel order used by this dataset's harmonization pipeline (seed-time context only). */
+const FUNNEL_STAGE_ORDER = ["inform", "engage", "outcomes", "impact", "societal"];
+
 /** Default: one independent ImpactLens project per organisation. */
 async function seedHarmonizedByOrg(dirArg: string | undefined, onlyOrgId: string | undefined): Promise<void> {
   const { records, anomalies, orgs, harmonizedPath } = loadHarmonizedInputs(dirArg);
-  const projects = mapHarmonizedByOrg(records, anomalies, orgs);
+  const projects = mapHarmonizedByOrg(records, anomalies, orgs, { stageOrder: FUNNEL_STAGE_ORDER });
   const selected = onlyOrgId ? projects.filter((p) => p.orgId === onlyOrgId) : projects;
   if (selected.length === 0) {
     throw new Error(onlyOrgId ? `No records found for org_id "${onlyOrgId}"` : "No organisations found in harmonized.json");
@@ -167,6 +170,7 @@ async function seedHarmonizedPortfolio(dirArg?: string): Promise<void> {
   const { records, anomalies, harmonizedPath } = loadHarmonizedInputs(dirArg);
   const { profiles, plan, dashboard } = mapHarmonized(records, anomalies, {
     projectName: "Aurelia Propel — full portfolio (deep harmonization)",
+    stageOrder: FUNNEL_STAGE_ORDER,
   });
   const id = await persistDashboard({
     name: "Aurelia Propel — full portfolio (deep harmonization)",

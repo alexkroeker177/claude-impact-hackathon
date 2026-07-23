@@ -17,12 +17,12 @@ Open `http://localhost:3000` — the home page's "Recent projects" should list 6
 ## Rehearsal A — one organisation's depth story
 
 1. Home → click **"PureCircle Innovations (AP1)"** (or any org — this one has the best anomaly to show).
-2. Point at the assessment sentence (KPI count, coverage %, evidence-grade share, review-signal count) — scoped to just this organisation.
-3. Point at the funnel chart — PureCircle's own funnel narrows from Impact (500,000) to Outcomes (2,500), which is backwards — call this out live.
-4. Click a KPI card → evidence drawer slides in: formula, coverage bar, example rows with real source file/row from PureCircle's own uploaded files.
-5. **Early warnings tab** → the funnel-monotonicity violation (impact 101,398 / 500,000 both exceed outcomes 2,500) and a team.fte outlier — call it "a review signal, not an automatic correction."
-6. **Outlook tab** → empty state, explicitly not forecasting.
-7. Go back home, click a *different* organisation (e.g. WellSpring Technologies) to show the drill-down genuinely differs per project — different KPI values, different funnel shape, different evidence mix.
+2. Point at the **"What this data says"** card — a plain-English assessment plus 2–3 insight bullets, scoped to just this organisation. PureCircle's opens with "Its funnel numbers contradict each other… which points to a reporting error."
+3. Point at the funnel chart ("From first contact to lasting change") — stages now run in canonical order, so PureCircle shows Outcomes 2,500 **followed by Impact 500,000** — visibly backwards. The KPI cards say it too: "People reached 2,500" vs "Deepest impact 500,000". Call it out live.
+4. Click a KPI card → evidence drawer opens with a green **"How it's calculated"** panel in plain language, then sources, exact formula, coverage, and example rows from PureCircle's own files.
+5. **Needs review tab** (shows the count in the tab label) → plain-language items: "Numbers don't add up: funnel.impact (500,000) exceeds funnel.outcomes (2,500)… likely a reporting or unit mix-up. Check AP1_April_23_Org_Performance_SA.csv" plus a team.fte outlier. Nothing is auto-corrected.
+6. **What's missing tab** → what would make the analysis stronger; explicitly not forecasting.
+7. Go back home, click **BrightWell Solutions (AP2)** — the clean contrast: a full five-stage monotonic funnel (1,000 → 500 → 100 → 100 → 100), a healthy assessment sentence, and a single minor parse warning. Proves the checks discriminate rather than flag everything.
 
 ## Rehearsal B — unseen upload (the genericity story)
 
@@ -43,3 +43,4 @@ Open `http://localhost:3000` — the home page's "Recent projects" should list 6
 - `bun run seed:*` must go through the package.json scripts (which invoke `tsx`, i.e. Node) — running `bun scripts/seed-project.ts` directly crashes Bun's own engine on `better-sqlite3`'s native binary. Not a problem in normal use; just don't bypass the npm-script layer.
 - Each org project's "1 file" source count in the project list is cosmetic (all of an org's profiles share one provenance path back to `data/harmonized.json`); the dashboard itself correctly shows every source file that organisation actually appears in.
 - A handful of smaller orgs only have 1 KPI (evidence-quality only) — they didn't report enough funnel stages for a chart. That's real data sparsity, not a bug; skip those orgs live and use one with 3 KPIs.
+- **WellSpring Technologies is NOT the clean example anymore.** Canonical funnel ordering revealed its deeper stages all report a flat 15,000 (previously masked by value-sorted ordering) — it now correctly reads as a broken funnel. Use **BrightWell Solutions (AP2)** or **PureFlow Innovations (AP4)** (zero warnings) for the clean contrast.

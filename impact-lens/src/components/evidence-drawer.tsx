@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { explainFormula } from "@/lib/analysis/explain";
 import type { SourceProfile } from "@/lib/files/types";
 import type { MetricDefinition } from "@/lib/semantic/schema";
 import type { ChartSpec, MetricResult } from "@/lib/analysis/types";
@@ -49,8 +50,17 @@ export function EvidenceDrawer({ open, onOpenChange, definition, result, profile
           <SheetDescription>{definition.description}</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-5 px-4 pb-6">
+          <div className="rounded-lg bg-emerald-50 px-3 py-2.5">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+              How it&rsquo;s calculated
+            </p>
+            <p className="text-sm leading-6 text-emerald-950">
+              {definition.howCalculated ?? explainFormula(definition, profiles)}
+            </p>
+          </div>
+
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Sources</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Where it comes from</p>
             <div className="flex flex-wrap gap-1.5">
               {result.evidence.sourceIds.map((sourceId) => (
                 <Badge key={sourceId} variant="outline">
@@ -61,7 +71,7 @@ export function EvidenceDrawer({ open, onOpenChange, definition, result, profile
           </div>
 
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Formula</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Exact formula</p>
             <p className="rounded-lg bg-slate-100 px-3 py-2 font-mono text-xs text-slate-700">
               {result.evidence.formula}
             </p>
@@ -83,23 +93,22 @@ export function EvidenceDrawer({ open, onOpenChange, definition, result, profile
           <Separator />
 
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Coverage</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Data used</p>
+            <p className="mb-2 text-sm text-slate-600">
+              Computed from {numberFormat.format(result.recordsUsed)} of {numberFormat.format(result.recordsAvailable)}{" "}
+              available records ({coveragePct}%).
+            </p>
             <Progress value={coveragePct}>
               <ProgressTrack>
                 <ProgressIndicator />
               </ProgressTrack>
             </Progress>
-            <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-slate-600">
-              <span>Used: {numberFormat.format(result.recordsUsed)}</span>
-              <span>Available: {numberFormat.format(result.recordsAvailable)}</span>
-              <span>Missing: {numberFormat.format(result.missingRecords)}</span>
-              <span>Excluded: {numberFormat.format(result.excludedRecords)}</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
-            <span>Confidence: {Math.round(definition.confidence * 100)}%</span>
-            {definition.unit && <span>Unit: {definition.unit}</span>}
+            {(result.missingRecords > 0 || result.excludedRecords > 0) && (
+              <p className="mt-2 text-sm text-slate-600">
+                {result.missingRecords > 0 && `${numberFormat.format(result.missingRecords)} records had no value.`}{" "}
+                {result.excludedRecords > 0 && `${numberFormat.format(result.excludedRecords)} couldn't be read as numbers.`}
+              </p>
+            )}
           </div>
 
           {definition.assumptions.length > 0 && (

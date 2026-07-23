@@ -34,7 +34,7 @@ export function buildWarnings(input: BuildWarningsInput): AnalysisWarning[] {
         push({
           scope: "data",
           severity: "warning",
-          message: `${Math.round(field.nullRate * 100)}% of "${field.header}" values are missing in ${profile.fileName}.`,
+          message: `The “${field.header}” column in ${profile.fileName} is ${Math.round(field.nullRate * 100)}% empty — figures based on it rest on thin data.`,
           sourceId: profile.sourceId,
           fieldRefs: [{ sourceId: profile.sourceId, fieldId: field.fieldId }],
         });
@@ -43,7 +43,7 @@ export function buildWarnings(input: BuildWarningsInput): AnalysisWarning[] {
         push({
           scope: "data",
           severity: "warning",
-          message: `"${field.header}" in ${profile.fileName} mixes incompatible value types.`,
+          message: `The “${field.header}” column in ${profile.fileName} mixes numbers and text — some values may have been skipped.`,
           sourceId: profile.sourceId,
           fieldRefs: [{ sourceId: profile.sourceId, fieldId: field.fieldId }],
         });
@@ -56,7 +56,7 @@ export function buildWarnings(input: BuildWarningsInput): AnalysisWarning[] {
       push({
         scope: "project",
         severity: "warning",
-        message: `"${definition.name}" was only computed from ${Math.round(result.coverage * 100)}% of available records.`,
+        message: `“${definition.name}” could only use ${Math.round(result.coverage * 100)}% of the rows — the rest were empty or unreadable, so treat it as an underestimate.`,
         sourceId: result.evidence.sourceIds[0] ?? null,
         fieldRefs: result.evidence.fieldRefs,
       });
@@ -85,7 +85,7 @@ export function buildWarnings(input: BuildWarningsInput): AnalysisWarning[] {
           push({
             scope: "project",
             severity: "warning",
-            message: `"${curr.label}" (${Math.round(curr.total).toLocaleString("en-US")}) exceeds "${prev.label}" (${Math.round(prev.total).toLocaleString("en-US")}) — a review signal, not an automatic correction.`,
+            message: `“${curr.label}” (${Math.round(curr.total).toLocaleString("en-US")}) is larger than “${prev.label}” (${Math.round(prev.total).toLocaleString("en-US")}) — later funnel stages should be smaller. Likely a reporting mistake worth checking at the source.`,
             sourceId: table.sourceId,
             fieldRefs: [
               { sourceId: table.sourceId, fieldId: curr.fieldId },
