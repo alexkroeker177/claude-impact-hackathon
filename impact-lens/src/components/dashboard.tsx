@@ -248,17 +248,23 @@ export function Dashboard({ data, project }: DashboardProps) {
               Five Dimensions of Impact
             </h3>
             <p className="mb-3 text-sm text-slate-500">
-              The five questions every impact report should answer — and whether this data answers them.
+              The five questions every impact report should answer — answered from this data where possible.
             </p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-              {DIMENSIONS.map(({ key, label, question }) => {
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {DIMENSIONS.map(({ key, question }) => {
                 const entry = data.plan.fiveDimensions[key];
                 return (
-                  <Card key={key} size="sm">
-                    <CardContent className="flex flex-col items-start gap-1.5">
-                      <span className="text-sm font-medium text-slate-900">{label}</span>
-                      <span className="text-xs text-slate-500">{question}</span>
-                      <Badge className={STATUS_BADGE[entry.status]}>{STATUS_LABEL[entry.status]}</Badge>
+                  <Card key={key} size="sm" className="h-full">
+                    <CardContent className="flex h-full flex-col items-start gap-2">
+                      <div className="flex w-full items-start justify-between gap-2">
+                        <span className="text-sm font-medium text-slate-900">{question}</span>
+                        <Badge className={`shrink-0 ${STATUS_BADGE[entry.status]}`}>
+                          {STATUS_LABEL[entry.status]}
+                        </Badge>
+                      </div>
+                      <p className="text-sm leading-6 text-slate-600">
+                        {entry.rationale || "Nothing in the data answers this yet."}
+                      </p>
                     </CardContent>
                   </Card>
                 );

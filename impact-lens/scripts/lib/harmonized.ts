@@ -194,6 +194,7 @@ export function mapHarmonized(
   const dates = [...new Set(records.map((r) => r.date))].sort();
   const waves = new Set(records.map((r) => `${r.cohort}|${r.wave}`)).size;
   const measured = records.filter((r) => r.grade === "A" || r.grade === "B");
+  const measuredPct = Math.round((measured.length / records.length) * 100);
   const scopeWord = scope === "org" ? "this organisation" : "the portfolio";
   const perWord = scope === "org" ? "per wave" : "per organisation";
 
@@ -446,11 +447,34 @@ export function mapHarmonized(
       impact: partial("Impact-stage figures are largely extrapolated (grade C) — treat as directional."),
     },
     fiveDimensions: {
-      what: identified("Canonical metric taxonomy defines what changed per record."),
-      who: identified("Entity resolution ties every record to a beneficiary-serving organisation."),
-      howMuch: identified("Funnel stages quantify scale and depth per wave."),
-      contribution: partial("Self-reported without a counterfactual; no contribution claim possible."),
-      risk: partial("Evidence grades D and monotonicity violations flag data-quality risk explicitly."),
+      what: identified(
+        stages.length >= 2
+          ? `People progressing through a ${stages.length}-stage journey, from “${prettyStage(stages[0].id)}” (first contact) to “${prettyStage(stages[stages.length - 1].id)}” (deepest change), alongside team and finance figures.`
+          : "Reported programme figures (reach, team, finances) — but no staged journey from contact to change was reported.",
+      ),
+      who: identified(
+        scope === "org"
+          ? `All ${records.length.toLocaleString("en-US")} figures belong to ${opts.projectName}, matched across name variations in ${profiles.length} file${profiles.length === 1 ? "" : "s"}.`
+          : `${orgIds.size} beneficiary-serving organisations, matched across name variations, contact people and email domains in every file.`,
+      ),
+      howMuch:
+        stages.length >= 2
+          ? identified(
+              funnelBroken
+                ? `The latest report claims ${Math.round(stages[0].total).toLocaleString("en-US")} people at the widest stage — but the stage numbers contradict each other, so treat the scale as unverified.`
+                : `${Math.round(stages[0].total).toLocaleString("en-US")} people at the widest stage and ${Math.round(stages[stages.length - 1].total).toLocaleString("en-US")} at the deepest, per the latest report.`,
+            )
+          : partial("Not enough funnel stages were reported to quantify scale and depth."),
+      contribution: partial(
+        "Unknown. Everything is self-reported with no comparison group, so the data can't show whether these changes would have happened anyway.",
+      ),
+      risk: partial(
+        `${measuredPct}% of figures were properly measured or calculated${
+          anomalies.length > 0
+            ? `, and ${anomalies.length} figure${anomalies.length === 1 ? " is" : "s are"} flagged for review — check those before relying on the totals`
+            : ", and nothing was flagged for review"
+        }.`,
+      ),
     },
     frameworkTags: [
       {
@@ -469,7 +493,6 @@ export function mapHarmonized(
     ],
   };
 
-  const measuredPct = Math.round((measured.length / records.length) * 100);
   const reachSentence =
     stages.length >= 2
       ? funnelBroken

@@ -1,5 +1,5 @@
 {
-  "understanding": "A youth employment training programme tracks 30 participants across three survey waves (Baseline, Midline, Endline). The table records enrolment, training completion, employment status, monthly income, household size and satisfaction — enough to measure reach, income progression and employment outcomes over time.",
+  "understanding": "A youth employment training programme tracks 30 participants across three survey waves (Baseline, Midline, Endline). The table records enrolment, training completion, employment status, monthly income, household size and satisfaction \u2014 enough to measure reach, income progression and employment outcomes over time.",
   "tables": [
     {
       "sourceId": "synthetic-impact-csv",
@@ -16,14 +16,19 @@
         "kind": "atomic",
         "expr": {
           "op": "distinct_count",
-          "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f0" },
+          "ref": {
+            "sourceId": "synthetic-impact-csv",
+            "fieldId": "f0"
+          },
           "filters": []
         }
       },
       "groupBy": null,
       "unit": "participants",
       "confidence": 0.95,
-      "assumptions": ["participant_id uniquely identifies a person."],
+      "assumptions": [
+        "participant_id uniquely identifies a person."
+      ],
       "caveats": []
     },
     {
@@ -34,10 +39,16 @@
         "kind": "atomic",
         "expr": {
           "op": "average",
-          "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f6" },
+          "ref": {
+            "sourceId": "synthetic-impact-csv",
+            "fieldId": "f6"
+          },
           "filters": [
             {
-              "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f2" },
+              "ref": {
+                "sourceId": "synthetic-impact-csv",
+                "fieldId": "f2"
+              },
               "op": "equals",
               "value": "Endline"
             }
@@ -47,8 +58,12 @@
       "groupBy": null,
       "unit": "USD",
       "confidence": 0.8,
-      "assumptions": ["Self-reported income is accurate to the month."],
-      "caveats": ["Some income values are missing and are excluded, not zeroed."]
+      "assumptions": [
+        "Self-reported income is accurate to the month."
+      ],
+      "caveats": [
+        "Some income values are missing and are excluded, not zeroed."
+      ]
     },
     {
       "id": "m-employment-endline",
@@ -61,12 +76,18 @@
           "ref": null,
           "filters": [
             {
-              "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f5" },
+              "ref": {
+                "sourceId": "synthetic-impact-csv",
+                "fieldId": "f5"
+              },
               "op": "equals",
               "value": "employed"
             },
             {
-              "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f2" },
+              "ref": {
+                "sourceId": "synthetic-impact-csv",
+                "fieldId": "f2"
+              },
               "op": "equals",
               "value": "Endline"
             }
@@ -77,7 +98,10 @@
           "ref": null,
           "filters": [
             {
-              "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f2" },
+              "ref": {
+                "sourceId": "synthetic-impact-csv",
+                "fieldId": "f2"
+              },
               "op": "equals",
               "value": "Endline"
             }
@@ -88,7 +112,9 @@
       "unit": "%",
       "confidence": 0.85,
       "assumptions": [],
-      "caveats": ["Counts respondents, not all enrolled participants."]
+      "caveats": [
+        "Counts respondents, not all enrolled participants."
+      ]
     },
     {
       "id": "m-satisfaction",
@@ -98,14 +124,22 @@
         "kind": "atomic",
         "expr": {
           "op": "average",
-          "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f8" },
+          "ref": {
+            "sourceId": "synthetic-impact-csv",
+            "fieldId": "f8"
+          },
           "filters": []
         }
       },
-      "groupBy": { "sourceId": "synthetic-impact-csv", "fieldId": "f2" },
+      "groupBy": {
+        "sourceId": "synthetic-impact-csv",
+        "fieldId": "f2"
+      },
       "unit": "score",
       "confidence": 0.85,
-      "assumptions": ["The 1-5 scale is comparable across waves."],
+      "assumptions": [
+        "The 1-5 scale is comparable across waves."
+      ],
       "caveats": []
     }
   ],
@@ -114,25 +148,46 @@
   "theoryOfChange": {
     "activity": {
       "status": "identified",
-      "fieldRefs": [{ "sourceId": "synthetic-impact-csv", "fieldId": "f4" }],
+      "fieldRefs": [
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f4"
+        }
+      ],
       "rationale": "training_completed records participation in the core activity."
     },
     "output": {
       "status": "identified",
-      "fieldRefs": [{ "sourceId": "synthetic-impact-csv", "fieldId": "f4" }],
+      "fieldRefs": [
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f4"
+        }
+      ],
       "rationale": "Completion counts are direct programme outputs."
     },
     "outcome": {
       "status": "identified",
       "fieldRefs": [
-        { "sourceId": "synthetic-impact-csv", "fieldId": "f5" },
-        { "sourceId": "synthetic-impact-csv", "fieldId": "f6" }
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f5"
+        },
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f6"
+        }
       ],
       "rationale": "Employment status and income capture participant outcomes."
     },
     "impact": {
       "status": "partial",
-      "fieldRefs": [{ "sourceId": "synthetic-impact-csv", "fieldId": "f7" }],
+      "fieldRefs": [
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f7"
+        }
+      ],
       "rationale": "Household size hints at wider reach, but no counterfactual exists."
     }
   },
@@ -140,33 +195,55 @@
     "what": {
       "status": "identified",
       "fieldRefs": [
-        { "sourceId": "synthetic-impact-csv", "fieldId": "f5" },
-        { "sourceId": "synthetic-impact-csv", "fieldId": "f6" }
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f5"
+        },
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f6"
+        }
       ],
-      "rationale": "Employment and income define the measured change."
+      "rationale": "Participants moved from unemployment into paid work, with monthly income tracked as the measure of change."
     },
     "who": {
       "status": "identified",
       "fieldRefs": [
-        { "sourceId": "synthetic-impact-csv", "fieldId": "f0" },
-        { "sourceId": "synthetic-impact-csv", "fieldId": "f1" }
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f0"
+        },
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f1"
+        }
       ],
-      "rationale": "Participants identified individually with a region split."
+      "rationale": "31 young jobseekers, tracked individually across three regions."
     },
     "howMuch": {
       "status": "identified",
-      "fieldRefs": [{ "sourceId": "synthetic-impact-csv", "fieldId": "f2" }],
-      "rationale": "Three waves allow measuring depth and duration of change."
+      "fieldRefs": [
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f2"
+        }
+      ],
+      "rationale": "Employment and income were measured at three points in time (baseline, midline, endline), showing how much changed and whether it lasted."
     },
     "contribution": {
       "status": "partial",
       "fieldRefs": [],
-      "rationale": "No comparison group; contribution cannot be isolated."
+      "rationale": "Unknown. There is no comparison group, so the data can't show whether participants would have found work anyway."
     },
     "risk": {
       "status": "partial",
-      "fieldRefs": [{ "sourceId": "synthetic-impact-csv", "fieldId": "f9" }],
-      "rationale": "Free-text feedback flags dropout and attendance risks qualitatively."
+      "fieldRefs": [
+        {
+          "sourceId": "synthetic-impact-csv",
+          "fieldId": "f9"
+        }
+      ],
+      "rationale": "The numbers are self-reported; free-text feedback mentions dropout and attendance problems that could bias the results."
     }
   },
   "frameworkTags": [
@@ -176,7 +253,7 @@
       "confidence": 0.6,
       "evidenceBasis": "field_evidence",
       "rationale": "Employment and income outcomes align with decent-work goals.",
-      "caveat": "Candidate alignment only — not a compliance assessment.",
+      "caveat": "Candidate alignment only \u2014 not a compliance assessment.",
       "referenceId": null
     }
   ],
