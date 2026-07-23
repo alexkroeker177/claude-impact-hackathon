@@ -31,6 +31,17 @@ function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** Strip markdown fences / surrounding prose so a JSON object embedded in text still parses. */
+function extractJson(text: string): string {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+  if (fenced) return fenced[1];
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start >= 0 && end > start) return trimmed.slice(start, end + 1);
+  return trimmed;
+}
+
 /**
  * Parse a raw model text output as JSON and run the caller's validator.
  * Exported separately so tests can exercise extraction without a live API call.
@@ -38,7 +49,7 @@ function errMessage(err: unknown): string {
 export function parseStructuredText<T>(text: string, validate: (raw: unknown) => T): T {
   let raw: unknown;
   try {
-    raw = JSON.parse(text);
+    raw = JSON.parse(extractJson(text));
   } catch (err) {
     throw new ClaudeRunError("invalid_output", `Model returned non-JSON output: ${errMessage(err)}`);
   }
@@ -49,25 +60,36 @@ export function parseStructuredText<T>(text: string, validate: (raw: unknown) =>
   }
 }
 
-async function runViaSdk<T>(opts: RunClaudeStructuredOptions<T>): Promise<T> {
+/**
+ * NOTE: we deliberately do NOT use the API's strict json_schema output format.
+ * The SemanticPlan schema compiles to a grammar above the API's size limit
+ * ("The compiled grammar is too large"). Instead the schema is embedded in the
+ * system prompt and the response is validated locally with zod — with one
+ * self-correcting retry that feeds the validation error back to the model.
+ */
+async function runViaSdk<T>(opts: RunClaudeStructuredOptions<T>, feedback?: string): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs());
   try {
     const client = new Anthropic();
+    const system = `${opts.system}
+
+Respond with ONLY a single JSON object — no markdown fences, no commentary before or after. The object must validate against this JSON Schema:
+${JSON.stringify(opts.jsonSchema)}`;
+    const prompt = feedback
+      ? `${opts.prompt}
+
+Your previous response failed validation: ${feedback}
+Return the corrected JSON object only.`
+      : opts.prompt;
     const response = await client.messages
       .stream(
         {
           model: process.env.CLAUDE_MODEL || "claude-opus-4-8",
           max_tokens: opts.maxTokens ?? 16000,
           thinking: { type: "adaptive" },
-          system: opts.system,
-          output_config: {
-            format: {
-              type: "json_schema",
-              schema: opts.jsonSchema as Record<string, unknown>,
-            },
-          },
-          messages: [{ role: "user", content: opts.prompt }],
+          system,
+          messages: [{ role: "user", content: prompt }],
         },
         { signal: controller.signal },
       )
@@ -187,5 +209,12 @@ export async function runClaudeStructured<T>(opts: RunClaudeStructuredOptions<T>
   if (process.env.CLAUDE_TRANSPORT === "cli") {
     return runViaCli(opts);
   }
-  return runViaSdk(opts);
+  try {
+    return await runViaSdk(opts);
+  } catch (err) {
+    if (err instanceof ClaudeRunError && err.kind === "invalid_output") {
+      return runViaSdk(opts, err.message);
+    }
+    throw err;
+  }
 }
