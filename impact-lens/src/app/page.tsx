@@ -14,12 +14,18 @@ export default function Home() {
           Turn previously unseen programme spreadsheets into explainable KPIs,
           evidence, and a clear first-pass impact dashboard.
         </p>
-        <div className="mt-10">
+        <div className="mt-10 flex flex-wrap gap-3">
           <Link
             className="inline-flex min-h-12 items-center justify-center rounded-full bg-emerald-700 px-6 font-semibold text-white transition hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700"
             href="/projects/new"
           >
             Create project
+          </Link>
+          <Link
+            className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-6 font-semibold text-slate-800 transition hover:border-slate-500 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-700"
+            href="/projects/demo"
+          >
+            Open demo dashboard
           </Link>
         </div>
         <div className="mt-16 grid gap-4 border-t border-slate-200 pt-8 text-sm text-slate-600 sm:grid-cols-3">

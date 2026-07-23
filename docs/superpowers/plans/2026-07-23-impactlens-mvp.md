@@ -8,6 +8,28 @@
 
 **Tech Stack:** Next.js App Router, TypeScript, Bun, Tailwind CSS, Papa Parse, SheetJS, Claude Code CLI, Zod, SQLite via `better-sqlite3`, Recharts, Vitest.
 
+## Current repository status — 2026-07-23
+
+- Tasks 1–7 are implemented together on `codex/impactlens-mvp` as one integrated vertical slice.
+- The generic parser/profiler, bounded Claude Code semantic pass, deterministic evaluator, join audit, warnings, chart selection, SQLite cache, APIs, wizard, dashboard, evidence UI, and both seed commands are present.
+- Claude receives structural profiles and aggregate ranges only—never raw uploads or sample rows. Interpretation is atomically single-run per project; repeat requests return the saved plan.
+- Raw uploads remain unchanged under ignored `.data/`; same-named files receive stable non-path identities so source references cannot collide.
+- Strict Zod contracts validate semantic plans and persisted dashboards. Generation reuses the saved plan and cannot launch Claude.
+- The single requested final test run passed all 10 tests across 3 files. Per user instruction, lint, production build, seed execution, and live/manual rehearsal were not run afterward.
+- The plan's intermediate red/green and per-task commit checkpoints were intentionally skipped under the build-first/time-saving instruction; implementation evidence is recorded at the final integrated checkpoint.
+- Windows is the implementation and test platform. macOS remains designed for portability but explicitly not smoke-tested.
+
+### Integrated module boundary
+
+| UI workstream | Ingestion workstream |
+| --- | --- |
+| `src/components/**` | `src/lib/**` |
+| `src/app/projects/[id]/page.tsx` | `src/app/api/**` |
+| `src/types/dashboard.ts` | uploads, persistence, Claude execution, metric calculation |
+| `fixtures/synthetic-dashboard.json` | parser, profiler, semantic plan, evidence production |
+
+The former parallel workstreams are integrated through one strictly validated `DashboardAnalysis` object. Fixture and production results use the same shape.
+
 ## Global Constraints
 
 - Create `impact-lens/` from scratch; do not import, copy, or depend on `ysi-dashboard/`.
@@ -84,7 +106,7 @@ impact-lens/
 - Produces: `parseTabularFile(input: FileInput): ParsedTable[]`, `profileTable(table: ParsedTable): SourceProfile`
 - `ParsedTable` preserves filename, optional sheet name, stable field IDs, original row numbers, raw string values, and parse warnings.
 
-- [ ] **Step 1: Scaffold and install only MVP dependencies**
+- [x] **Step 1: Scaffold and install only MVP dependencies**
 
 ```powershell
 bunx create-next-app@latest impact-lens --ts --tailwind --eslint --app --src-dir --import-alias "@/*" --use-bun
@@ -95,7 +117,7 @@ bun add -d @types/better-sqlite3 @types/papaparse jsdom tsx vitest
 
 Add scripts `test: "vitest run"`, `test:watch: "vitest"`, `seed:aurelia: "tsx scripts/seed-project.ts"`, and `seed:fallback: "tsx scripts/seed-project.ts --fallback"`. Add `.data/` to `.gitignore`.
 
-- [ ] **Step 2: Configure Vitest**
+- [x] **Step 2: Configure Vitest**
 
 Create `vitest.config.ts`:
 
@@ -111,7 +133,7 @@ export default defineConfig({
 
 Create `tests/setup.ts` to set `IMPACTLENS_DB_PATH` to `.data/vitest-<pid>.db`.
 
-- [ ] **Step 3: Write automated tests 1 and 2 before implementation**
+- [x] **Step 3: Write automated tests 1 and 2 before implementation**
 
 In `tests/analysis.test.ts`, test 1 parses a BOM-prefixed semicolon CSV containing a blank value and asserts two rows, correct headers, source row `2`, and a numeric field profile with the blank preserved. Test 2 creates an in-memory SheetJS workbook with two worksheets and asserts two `ParsedTable` results with distinct `sourceId` values.
 
@@ -131,7 +153,7 @@ Run: `bun test`
 
 Expected: two failures because parser/profiler modules do not exist.
 
-- [ ] **Step 5: Implement deterministic parsing and profiling**
+- [x] **Step 5: Implement deterministic parsing and profiling**
 
 CSV parsing uses Papa Parse delimiter detection, `skipEmptyLines: "greedy"`, BOM removal, and multiline quoted-cell support. XLSX parsing enumerates every non-empty worksheet with `sheet_to_json({ header: 1, raw: false, defval: "" })`. Profiling infers boolean, percentage, currency, integer, number, date, identifier, category, or text; calculates missingness/uniqueness/ranges; emits at most five redacted samples; and never assigns semantic meaning.
 
@@ -162,7 +184,7 @@ Expected: exactly two passing tests.
 - Consumes: `{ projectName, goal, attention, profiles }`
 - Produces: `runClaudeStructured<T>(input): Promise<T>`, `interpretProject(input): Promise<SemanticPlan>`, `validateSemanticPlan(plan, profiles, userContext): SemanticPlan`
 
-- [ ] **Step 1: Define the structured contract**
+- [x] **Step 1: Define the structured contract**
 
 Use Zod to define `FieldRef`, table purposes, field roles, optional exact `CandidateJoin`, and up to four `MetricDefinition` objects. Define formulas as either one atomic `count | distinct_count | sum | average` expression or one `ratio` with two atomic expressions. Define:
 
@@ -180,7 +202,7 @@ type FrameworkTag = {
 
 The plan includes Theory-of-Change coverage for activity/output/outcome/impact and Five Dimensions coverage for what/who/how much/contribution/risk, each with `identified | partial | not_found`, field references, and rationale.
 
-- [ ] **Step 2: Write automated test 3**
+- [x] **Step 2: Write automated test 3**
 
 Create a valid plan and a synthetic Claude Code JSON envelope, then assert the runner extracts and validates the structured result. Also assert validation rejects:
 
@@ -202,7 +224,7 @@ Run: `bun test -t "3\."`
 
 Expected: failure because schemas and validation do not exist.
 
-- [ ] **Step 4: Implement the bounded Claude Code runner**
+- [x] **Step 4: Implement the bounded Claude Code runner**
 
 Resolve the executable from `CLAUDE_PATH`, then `PATH`, then `path.join(os.homedir(), ".local", "bin", process.platform === "win32" ? "claude.exe" : "claude")`. Create `.data/runs/<uuid>/analysis-input.json` containing only project context, profiles, and redacted samples. Spawn with `node:child_process.spawn(executable, args, { cwd: runDir, shell: false, stdio: ["ignore", "pipe", "pipe"] })` and these arguments:
 
@@ -224,7 +246,7 @@ Add `--model` only when `CLAUDE_MODEL` is configured. Capture stdout/stderr with
 
 Implement timeout cleanup with `child.kill("SIGTERM")`, a short grace timer, and `child.kill("SIGKILL")`; Node maps this to process termination on Windows. Do not call `cmd.exe`, PowerShell, Bash, or interpolate a command string.
 
-- [ ] **Step 5: Implement semantic interpretation**
+- [x] **Step 5: Implement semantic interpretation**
 
 Write compact profiles and redacted samples to the isolated analysis packet. The prompt requires output matching the JSON Schema, at most four calculable KPIs, explicit uncertainty, no invented fields, candidate framework alignment only, and no compliance claims. Validate all field references, remove invalid metrics individually, and fail only if the overall plan is malformed.
 
@@ -283,7 +305,7 @@ type MetricResult = {
 };
 ```
 
-- [ ] **Step 1: Write automated test 4**
+- [x] **Step 1: Write automated test 4**
 
 Use rows with values `100`, `200`, and blank. Assert sum `300`, average `150`, coverage `2/3`, five-or-fewer evidence rows, and a ratio with zero denominator returns `null` plus a divide-by-zero caveat.
 
@@ -293,7 +315,7 @@ Run: `bun test -t "4\."`
 
 Expected: failure because `evaluateMetric` does not exist.
 
-- [ ] **Step 3: Implement the evaluator**
+- [x] **Step 3: Implement the evaluator**
 
 Support exact equality and non-empty filters, at most one group-by field, four atomic operations, and one-level ratio. Validate numeric types for sum/average, deduplicate values for distinct count, exclude missing/invalid values, reject nested ratios, and build evidence from actual contributing rows.
 
@@ -323,7 +345,7 @@ Expected: four passing tests.
 - Consumes: project context, `FileInput[]`, injected `interpret` function, accepted metric IDs, optional confirmed join
 - Produces: `runAnalysis(input): Promise<DashboardAnalysis>`
 
-- [ ] **Step 1: Write automated test 5**
+- [x] **Step 1: Write automated test 5**
 
 Inject a deterministic semantic plan into `runAnalysis`. Assert an unseen fixture reaches a dashboard result with two calculated KPIs, one bar or line chart, Five Dimensions coverage, at least one missingness warning, and evidence referencing real source rows. Assert the original header names are not mentioned anywhere in application logic outside the fixture/plan.
 
@@ -333,15 +355,15 @@ Run: `bun test -t "5\."`
 
 Expected: failure because orchestration does not exist.
 
-- [ ] **Step 3: Implement the exact-join audit**
+- [x] **Step 3: Implement the exact-join audit**
 
 `auditExactJoin(candidate, tables)` normalises values only with Unicode NFKC, trim, and case folding. It returns eligible only for compatible key types, at least 90% match coverage on the relevant side, zero duplicates on the required one side, and no many-to-many pairs. It rejects fuzzy/composite candidates. Until the user confirms an eligible audit, cross-file metrics remain invalid.
 
-- [ ] **Step 4: Implement minimal warnings and chart selection**
+- [x] **Step 4: Implement minimal warnings and chart selection**
 
 Warnings cover parse failures, missingness `>= 50%`, mixed physical types, invalid numeric/date values, duplicate candidate IDs, low coverage, rejected joins, and non-increasing violations only for an explicitly identified ordered same-table funnel. Charts are selected deterministically: ordered time → line; category → bar; explicitly ordered same-table stages → funnel; otherwise no chart.
 
-- [ ] **Step 5: Implement pure orchestration**
+- [x] **Step 5: Implement pure orchestration**
 
 `runAnalysis` enforces 10 MB/25,000 rows without checking file count, parses and profiles all files, calls the injected interpreter once, validates the plan, evaluates accepted metrics, selects at most one primary chart, and returns a deterministic assessment plus framework metadata and warnings.
 
@@ -373,21 +395,21 @@ Expected: exactly five passing tests. Do not add more automated tests before the
 **Interfaces:**
 - Produces: multipart project creation, retryable interpretation, review submission, and cached dashboard generation.
 
-- [ ] **Step 1: Create the five-table schema**
+- [x] **Step 1: Create the five-table schema**
 
 Create `projects`, `sources`, `analysis_runs`, `metrics`, and `findings`. Store profiles, semantic plans, definitions, results, chart series, framework metadata, and evidence as validated JSON. Store raw-file paths in `sources`; do not create entity or observation tables.
 
-- [ ] **Step 2: Implement upload validation and storage**
+- [x] **Step 2: Implement upload validation and storage**
 
 `POST /api/projects` accepts the three context fields and any number of CSV/XLSX files. Reject combined bytes above `10 * 1024 * 1024`, parsed rows above `25_000`, or unsupported formats. Sanitize filenames, store originals under `.data/uploads/<project-id>/`, persist profiles, and isolate individual parse failures.
 
 Use `path.basename` only for display labels and a generated UUID plus original extension for storage. Reject names whose resolved storage path escapes the project upload directory. Use `path.join` and `fs.mkdir({ recursive: true })`; do not concatenate filesystem separators.
 
-- [ ] **Step 3: Implement interpretation and generation routes**
+- [x] **Step 3: Implement interpretation and generation routes**
 
 `POST /api/projects/:id/interpret` loads profiles and performs the single bounded `claude -p` run. `POST /api/projects/:id/generate` accepts `acceptedMetricIds` and optional `confirmedJoinId`, reparses raw files, evaluates metrics, stores aggregate results, and never launches Claude again.
 
-- [ ] **Step 4: Build one compact wizard**
+- [x] **Step 4: Build one compact wizard**
 
 The wizard contains project name, goal, optional attention, unlimited-count file picker, real processing stages, concise understanding, file/table summary, Five Dimensions coverage, optional framework tags, three/four KPI cards, optional exact join confirmation, and collapsed advanced details. It redirects to `/projects/<id>` after generation.
 
@@ -418,23 +440,27 @@ git commit -m "feat: add ImpactLens upload and review workflow"
 - Consumes: cached `DashboardAnalysis`
 - Produces: Overall, Early Warnings, and Outlook tabs with auditable KPI evidence.
 
-- [ ] **Step 1: Render the official Overall MVP**
+- [x] **Step 1: Render the official Overall MVP**
 
 Show two to four KPI cards, at most one Recharts line/bar/funnel chart, deterministic assessment, coverage, Five Dimensions strip, and optional candidate framework tags. Label every tag `Candidate alignment` and never use compliance language.
 
-- [ ] **Step 2: Implement evidence drawers**
+- [x] **Step 2: Implement evidence drawers**
 
 Display source filename/sheet, fields, formula, filters, used/available/missing/excluded counts, confidence, assumptions, caveats, and up to five row examples. Provide a textual summary for every chart.
 
-- [ ] **Step 3: Render warnings and Outlook**
+- [x] **Step 3: Render warnings and Outlook**
 
 Separate basic Data warnings from stretch Project warnings. Outlook displays `Insufficient evidence` with missing requirements; do not implement scoring or forecasting. Empty charts and unsupported framework tags are omitted.
 
-- [ ] **Step 4: Add project list and failure states**
+- [x] **Step 4: Add project list and failure states**
 
 List ready/processing/failed projects, preserve parsed profiles after Claude failure, offer retry, explain when fewer than two KPIs survive validation, and open cached dashboards without a model call.
 
-- [ ] **Step 5: Verify and commit**
+Current implementation note: project routes now load strict validated dashboards from SQLite, resume saved reviews, distinguish interpretation from generation failures, and retain the synthetic fallback route.
+
+- [x] **Step 5: Commit the integrated implementation**
+
+Verification record on 2026-07-23: the single requested final suite passed 10/10 tests. A static security/code review was completed and its critical findings were fixed. No second test run, lint, or production build was performed after those fixes, per user instruction.
 
 ```powershell
 bun test
@@ -459,7 +485,7 @@ git commit -m "feat: render explainable impact dashboards"
 **Interfaces:**
 - Produces: `bun run seed:aurelia -- <directory>`, `bun run seed:fallback`, and a pitch-ready local app.
 
-- [ ] **Step 1: Implement the generic Aurelia directory seed**
+- [x] **Step 1: Implement the generic Aurelia directory seed**
 
 Enumerate every supported CSV/XLSX file in the supplied directory with Node filesystem APIs, enforce only combined byte/row limits, and call the same shared pipeline as upload. Project context may name Aurelia, but the script contains no source filenames, headers, metrics, or join mappings. Persist ignored local results. The command accepts either a Windows or POSIX absolute directory path.
 
@@ -474,11 +500,11 @@ The seed passes when the generic plan identifies the five-level funnel plus at l
 
 For funnel metrics, calculate and warn on non-increasing-stage violations only after Claude Code identifies an ordered same-table funnel. For financial metrics, reject ambiguous currencies or number formats. For capability lift, require comparable fields, ordered waves, and any necessary confirmed exact join. For feedback, calculate only clear numeric scales; treat free text as detected qualitative evidence without cross-response theme synthesis.
 
-- [ ] **Step 2: Add the committed synthetic fallback**
+- [x] **Step 2: Add the committed synthetic fallback**
 
 Create invented programme data and a precomputed validated dashboard JSON. `seed:fallback` installs that cache without Claude so the pitch retains a ready example during API failure. Mark the project `synthetic` in the UI.
 
-- [ ] **Step 3: Audit genericity and repository safety**
+- [x] **Step 3: Audit genericity and repository safety**
 
 ```powershell
 rg -n -i "beneficiar|aurelia|cohort|midline|endline|ysi|ap[1-4]" src
@@ -519,7 +545,7 @@ macOS:   CLAUDE_PATH=/Users/<user>/.local/bin/claude
 
 Run the full live path on the hackathon machine. Before claiming macOS support, run parser, build, Claude health check, seed fallback, and one upload smoke test on a macOS machine; if unavailable before the pitch, label macOS as designed-for portability but not yet smoke-tested.
 
-- [ ] **Step 6: Commit pitch readiness**
+- [x] **Step 6: Commit pitch readiness**
 
 ```powershell
 git add impact-lens/scripts impact-lens/fixtures impact-lens/README.md impact-lens/docs impact-lens/package.json impact-lens/bun.lock

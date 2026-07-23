@@ -1,0 +1,163 @@
+{
+  "project": {
+    "id": "demo",
+    "name": "Harbor Health Collective",
+    "goal": "Understand whether community health workshops translate from reach into sustained behaviour change.",
+    "updatedAt": "23 Jul 2026, 17:30",
+    "sourceCount": 4,
+    "dataWindow": "Baseline to endline",
+    "status": "ready",
+    "synthetic": true
+  },
+  "assessment": {
+    "summary": "The programme retains most participants through measurable outcomes. Evidence becomes thinner at the lasting and societal-impact stages, so the lower funnel should be treated as directional.",
+    "confidence": "medium",
+    "coverage": 0.82
+  },
+  "metrics": [
+    {
+      "id": "people-informed",
+      "label": "People informed",
+      "value": 7500,
+      "displayValue": "7,500",
+      "unit": "people",
+      "coverage": 0.94,
+      "recordsUsed": 47,
+      "recordsAvailable": 50,
+      "missingRecords": 3,
+      "excludedRecords": 0,
+      "confidence": "high",
+      "context": "Top of the reach-to-impact funnel",
+      "evidence": {
+        "sources": ["synthetic-impact.xlsx · Reach"],
+        "fields": ["People informed"],
+        "formula": "sum(non_empty(people_informed))",
+        "filters": ["Non-empty numeric values"],
+        "exampleRows": [2, 8, 14],
+        "caveats": ["Indirect reach may include modelled estimates."]
+      }
+    },
+    {
+      "id": "people-engaged",
+      "label": "People engaged",
+      "value": 6450,
+      "displayValue": "6,450",
+      "unit": "people",
+      "coverage": 0.9,
+      "recordsUsed": 45,
+      "recordsAvailable": 50,
+      "missingRecords": 5,
+      "excludedRecords": 0,
+      "confidence": "high",
+      "context": "Direct interaction with the programme",
+      "evidence": {
+        "sources": ["synthetic-impact.xlsx · Reach"],
+        "fields": ["People engaged"],
+        "formula": "sum(non_empty(people_engaged))",
+        "filters": ["Non-empty numeric values"],
+        "exampleRows": [2, 8, 14],
+        "caveats": ["Repeat participation is not deduplicated in every source."]
+      }
+    },
+    {
+      "id": "measured-outcomes",
+      "label": "Measured outcomes",
+      "value": 5600,
+      "displayValue": "5,600",
+      "unit": "people",
+      "coverage": 0.84,
+      "recordsUsed": 42,
+      "recordsAvailable": 50,
+      "missingRecords": 7,
+      "excludedRecords": 1,
+      "confidence": "medium",
+      "context": "Participants with an observed near-term outcome",
+      "evidence": {
+        "sources": ["synthetic-impact.xlsx · Outcomes"],
+        "fields": ["Outcome count"],
+        "formula": "sum(valid(outcome_count))",
+        "filters": ["Outcome recorded", "Numeric value"],
+        "exampleRows": [3, 9, 15],
+        "caveats": ["Outcome definitions vary slightly by delivery partner."]
+      }
+    },
+    {
+      "id": "societal-impact",
+      "label": "Societal impact",
+      "value": 3500,
+      "displayValue": "3,500",
+      "unit": "people",
+      "coverage": 0.46,
+      "recordsUsed": 23,
+      "recordsAvailable": 50,
+      "missingRecords": 27,
+      "excludedRecords": 0,
+      "confidence": "low",
+      "context": "Broader change reported beyond direct participants",
+      "evidence": {
+        "sources": ["synthetic-impact.xlsx · Outcomes"],
+        "fields": ["Societal impact"],
+        "formula": "sum(non_empty(societal_impact))",
+        "filters": ["Non-empty numeric values"],
+        "exampleRows": [3, 21],
+        "caveats": ["More than half of records are missing.", "Attribution is not independently verified."]
+      }
+    }
+  ],
+  "chart": {
+    "type": "bar",
+    "title": "Reach-to-impact funnel",
+    "description": "Reported people decrease from 7,500 informed to 3,500 experiencing broader societal impact.",
+    "series": [
+      { "label": "Inform", "value": 7500 },
+      { "label": "Engage", "value": 6450 },
+      { "label": "Outcomes", "value": 5600 },
+      { "label": "Impact", "value": 5600 },
+      { "label": "Societal", "value": 3500 }
+    ]
+  },
+  "fiveDimensions": [
+    { "dimension": "What", "status": "identified", "evidence": "Health knowledge and behaviour outcomes" },
+    { "dimension": "Who", "status": "identified", "evidence": "Vulnerable groups and gender recorded" },
+    { "dimension": "How much", "status": "identified", "evidence": "Five-stage reach counts" },
+    { "dimension": "Contribution", "status": "partial", "evidence": "Attribution is self-reported" },
+    { "dimension": "Risk", "status": "not_found", "evidence": "No explicit risk indicators found" }
+  ],
+  "frameworkTags": [
+    {
+      "framework": "sdg",
+      "label": "SDG 3 · Good Health and Well-being",
+      "confidence": 0.74,
+      "rationale": "Project context and outcome fields reference health knowledge and access.",
+      "caveat": "Candidate interpretation, not standards compliance."
+    },
+    {
+      "framework": "triple_bottom_line",
+      "label": "Triple Bottom Line · People",
+      "confidence": 0.81,
+      "rationale": "The available measures primarily describe social outcomes for people.",
+      "caveat": "Planet and profit dimensions are not evidenced in the uploaded data."
+    }
+  ],
+  "warnings": [
+    {
+      "id": "missing-societal",
+      "severity": "high",
+      "title": "High missingness in societal impact",
+      "detail": "54% of records do not contain a usable societal-impact value.",
+      "recommendation": "Confirm whether blanks mean not measured or not applicable."
+    },
+    {
+      "id": "attribution",
+      "severity": "medium",
+      "title": "Contribution evidence is incomplete",
+      "detail": "Available responses describe change but do not consistently isolate the programme's contribution.",
+      "recommendation": "Add a comparison, counterfactual, or structured attribution question."
+    }
+  ],
+  "outlook": {
+    "status": "insufficient_evidence",
+    "summary": "There is not enough comparable time-series evidence for a defensible success probability or prognosis.",
+    "missingRequirements": ["Comparable outcome dates", "Confirmed target values", "At least three consistent measurement periods", "Stable outcome definitions"]
+  }
+}

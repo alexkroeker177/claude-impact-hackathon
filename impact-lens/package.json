@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:aurelia": "tsx scripts/seed-project.ts",
+    "seed:fallback": "tsx scripts/seed-project.ts --fallback"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.1",
