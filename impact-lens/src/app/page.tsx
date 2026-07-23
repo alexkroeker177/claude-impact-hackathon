@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { RecentProjects } from "@/components/recent-projects";
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-16 text-slate-950">
@@ -28,6 +30,7 @@ export default function Home() {
           <p>Trace every result to evidence</p>
         </div>
       </section>
+      <RecentProjects />
     </main>
   );
 }

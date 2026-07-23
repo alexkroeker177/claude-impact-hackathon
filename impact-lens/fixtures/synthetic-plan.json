@@ -1,0 +1,187 @@
+{
+  "understanding": "A youth employment training programme tracks 30 participants across three survey waves (Baseline, Midline, Endline). The table records enrolment, training completion, employment status, monthly income, household size and satisfaction — enough to measure reach, income progression and employment outcomes over time.",
+  "tables": [
+    {
+      "sourceId": "synthetic-impact-csv",
+      "purpose": "survey_responses",
+      "rationale": "One row per participant per wave with outcome fields."
+    }
+  ],
+  "proposedMetrics": [
+    {
+      "id": "m-participants",
+      "name": "Participants enrolled",
+      "description": "Distinct participants that appear in the programme records.",
+      "formula": {
+        "kind": "atomic",
+        "expr": {
+          "op": "distinct_count",
+          "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f0" },
+          "filters": []
+        }
+      },
+      "groupBy": null,
+      "unit": "participants",
+      "confidence": 0.95,
+      "assumptions": ["participant_id uniquely identifies a person."],
+      "caveats": []
+    },
+    {
+      "id": "m-income-endline",
+      "name": "Average monthly income at endline",
+      "description": "Mean reported monthly income (USD) among endline responses.",
+      "formula": {
+        "kind": "atomic",
+        "expr": {
+          "op": "average",
+          "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f6" },
+          "filters": [
+            {
+              "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f2" },
+              "op": "equals",
+              "value": "Endline"
+            }
+          ]
+        }
+      },
+      "groupBy": null,
+      "unit": "USD",
+      "confidence": 0.8,
+      "assumptions": ["Self-reported income is accurate to the month."],
+      "caveats": ["Some income values are missing and are excluded, not zeroed."]
+    },
+    {
+      "id": "m-employment-endline",
+      "name": "Employment rate at endline",
+      "description": "Share of endline respondents reporting formal employment.",
+      "formula": {
+        "kind": "ratio",
+        "numerator": {
+          "op": "count",
+          "ref": null,
+          "filters": [
+            {
+              "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f5" },
+              "op": "equals",
+              "value": "employed"
+            },
+            {
+              "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f2" },
+              "op": "equals",
+              "value": "Endline"
+            }
+          ]
+        },
+        "denominator": {
+          "op": "count",
+          "ref": null,
+          "filters": [
+            {
+              "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f2" },
+              "op": "equals",
+              "value": "Endline"
+            }
+          ]
+        }
+      },
+      "groupBy": null,
+      "unit": "%",
+      "confidence": 0.85,
+      "assumptions": [],
+      "caveats": ["Counts respondents, not all enrolled participants."]
+    },
+    {
+      "id": "m-satisfaction",
+      "name": "Average satisfaction by wave",
+      "description": "Mean satisfaction score (1-5) per survey wave.",
+      "formula": {
+        "kind": "atomic",
+        "expr": {
+          "op": "average",
+          "ref": { "sourceId": "synthetic-impact-csv", "fieldId": "f8" },
+          "filters": []
+        }
+      },
+      "groupBy": { "sourceId": "synthetic-impact-csv", "fieldId": "f2" },
+      "unit": "score",
+      "confidence": 0.85,
+      "assumptions": ["The 1-5 scale is comparable across waves."],
+      "caveats": []
+    }
+  ],
+  "candidateJoin": null,
+  "orderedFunnel": null,
+  "theoryOfChange": {
+    "activity": {
+      "status": "identified",
+      "fieldRefs": [{ "sourceId": "synthetic-impact-csv", "fieldId": "f4" }],
+      "rationale": "training_completed records participation in the core activity."
+    },
+    "output": {
+      "status": "identified",
+      "fieldRefs": [{ "sourceId": "synthetic-impact-csv", "fieldId": "f4" }],
+      "rationale": "Completion counts are direct programme outputs."
+    },
+    "outcome": {
+      "status": "identified",
+      "fieldRefs": [
+        { "sourceId": "synthetic-impact-csv", "fieldId": "f5" },
+        { "sourceId": "synthetic-impact-csv", "fieldId": "f6" }
+      ],
+      "rationale": "Employment status and income capture participant outcomes."
+    },
+    "impact": {
+      "status": "partial",
+      "fieldRefs": [{ "sourceId": "synthetic-impact-csv", "fieldId": "f7" }],
+      "rationale": "Household size hints at wider reach, but no counterfactual exists."
+    }
+  },
+  "fiveDimensions": {
+    "what": {
+      "status": "identified",
+      "fieldRefs": [
+        { "sourceId": "synthetic-impact-csv", "fieldId": "f5" },
+        { "sourceId": "synthetic-impact-csv", "fieldId": "f6" }
+      ],
+      "rationale": "Employment and income define the measured change."
+    },
+    "who": {
+      "status": "identified",
+      "fieldRefs": [
+        { "sourceId": "synthetic-impact-csv", "fieldId": "f0" },
+        { "sourceId": "synthetic-impact-csv", "fieldId": "f1" }
+      ],
+      "rationale": "Participants identified individually with a region split."
+    },
+    "howMuch": {
+      "status": "identified",
+      "fieldRefs": [{ "sourceId": "synthetic-impact-csv", "fieldId": "f2" }],
+      "rationale": "Three waves allow measuring depth and duration of change."
+    },
+    "contribution": {
+      "status": "partial",
+      "fieldRefs": [],
+      "rationale": "No comparison group; contribution cannot be isolated."
+    },
+    "risk": {
+      "status": "partial",
+      "fieldRefs": [{ "sourceId": "synthetic-impact-csv", "fieldId": "f9" }],
+      "rationale": "Free-text feedback flags dropout and attendance risks qualitatively."
+    }
+  },
+  "frameworkTags": [
+    {
+      "framework": "sdg",
+      "label": "Decent Work and Economic Growth",
+      "confidence": 0.6,
+      "evidenceBasis": "field_evidence",
+      "rationale": "Employment and income outcomes align with decent-work goals.",
+      "caveat": "Candidate alignment only — not a compliance assessment.",
+      "referenceId": null
+    }
+  ],
+  "uncertainties": [
+    "Income is self-reported and missing for some respondents.",
+    "Endline non-response may bias employment rate upward."
+  ]
+}

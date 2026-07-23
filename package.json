@@ -9,6 +9,7 @@
     "@anthropic-ai/sdk": "latest"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.14"
+    "@types/bun": "^1.3.14",
+    "shadcn": "^4.14.0"
   }
 }

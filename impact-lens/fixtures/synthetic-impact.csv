@@ -1,0 +1,31 @@
+participant_id,region,survey_wave,enrolled_month,training_completed,employment_status,monthly_income_usd,household_size,satisfaction_score,feedback
+P-001,North,Baseline,2025-01,no,unemployed,0,4,2,Looking forward to the program
+P-002,North,Baseline,2025-01,no,informal,85,6,3,
+P-003,South,Baseline,2025-01,no,unemployed,0,3,3,Hope to find stable work
+P-004,South,Baseline,2025-02,no,informal,120,5,2,
+P-005,East,Baseline,2025-02,no,unemployed,,7,3,Travel to sessions is difficult
+P-006,East,Baseline,2025-02,no,informal,95,4,4,
+P-007,West,Baseline,2025-02,no,unemployed,0,5,3,
+P-008,West,Baseline,2025-03,no,unemployed,0,6,2,Childcare makes attendance hard
+P-009,North,Baseline,2025-03,no,informal,110,3,3,
+P-010,South,Baseline,2025-03,no,unemployed,0,4,,
+P-011,North,Midline,2025-06,yes,informal,140,4,4,Sessions were practical
+P-012,North,Midline,2025-06,yes,employed,310,6,4,
+P-013,South,Midline,2025-06,yes,informal,160,3,3,Would like more mentoring
+P-014,South,Midline,2025-06,no,informal,120,5,3,
+P-015,East,Midline,2025-06,yes,employed,290,7,5,Got a job at a local workshop
+P-016,East,Midline,2025-06,yes,informal,,4,4,
+P-017,West,Midline,2025-07,no,unemployed,0,5,2,Had to pause for family reasons
+P-018,West,Midline,2025-07,yes,informal,150,6,4,
+P-019,North,Midline,2025-07,yes,employed,275,3,4,
+P-020,South,Midline,2025-07,yes,informal,145,4,4,
+P-021,North,Endline,2025-11,yes,employed,340,4,5,Stable job for three months now
+P-022,North,Endline,2025-11,yes,employed,360,6,4,
+P-023,South,Endline,2025-11,yes,informal,180,3,4,Started a small tailoring business
+P-024,South,Endline,2025-11,yes,employed,320,5,4,
+P-025,East,Endline,2025-11,yes,employed,,7,5,
+P-026,East,Endline,2025-11,yes,informal,190,4,3,
+P-027,West,Endline,2025-12,no,unemployed,0,5,,Dropped out at midline
+P-028,West,Endline,2025-12,yes,employed,305,6,5,Very grateful for the placement help
+P-029,North,Endline,2025-12,yes,employed,330,3,4,
+P-030,South,Endline,2025-12,yes,informal,175,4,4,
