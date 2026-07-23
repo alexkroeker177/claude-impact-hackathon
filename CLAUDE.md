@@ -15,24 +15,25 @@ This CLAUDE.md is the project's north star: it fixes the **scope** we're buildin
 
 ---
 
-## Challenge tracks — pick ONE
+## Selected Challenge track
 
-Three tracks; two have real partner users behind them, one is a wildcard. Datasets analyzed in `docs/` (read those first — [`docs/YSI-Dataset.md`](docs/YSI-Dataset.md), [`docs/Zollhof-Dataset.md`](docs/Zollhof-Dataset.md)).
 
-### 1. ZOLLHOF — The integration journey
-Arriving in Germany means a maze of offices, forms, and deadlines — often in a language you don't yet speak.
-**Brief:** Build a **multilingual assistant** (Arabic, Farsi, Ukrainian, Turkish, English, German) that explains the integration journey — personalised next steps, the documents and deadlines that apply, and the nearest office to go to. **Qualification recognition (Anerkennung)** is one optional deep-dive module.
-**Data:** the Zollhof recognition data pack → [`docs/Zollhof-Dataset.md`](docs/Zollhof-Dataset.md). Everything joins through ISCO-08; Integreat is the best RAG corpus; the multilingual coverage gap (no Ukrainian/Turkish in ESCO) is a known trap.
 
-### 2. Yunus Social Innovation — AI-Powered Impact Intelligence
+###  Yunus Social Innovation — AI-Powered Impact Intelligence
 Social enterprises collect impact data constantly, but it scatters across inconsistent surveys and spreadsheets.
 **Brief:** Turn messy, real-world impact data into something **clear and useful**, so organisations can see whether their programmes actually work.
 **Data:** the anonymised Aurelia Propel IMM dataset → [`docs/YSI-Dataset.md`](docs/YSI-Dataset.md). Cohort (AP1–AP4) × wave (Baseline→Midline→Endline); the core hard problem is joining beneficiary records across waves; 5-level impact funnel is the headline metric.
 
-### 3. Wildcard — Your call
-Bring your own real social-impact problem. **Same judging criteria apply** — you just have to convince the room the problem is real.
+every hour serves the demo for that track.
 
-> **Decision to lock early (by ~14:30):** which track. Don't hedge across two. Once picked, every hour serves the demo for that track.
+
+The challenge (based on their presentation):
+
+- Everyone wants to help: Every year, governments, foundations and companies, spend Billions on programmes meant to improve lifes. To check whether this money is well spent, organisations collect huge amounts of data: surveys, reports, spreadsheets, interviews
+
+- The result: But there's a problem: the data exists, but it's a mess. There is no common understanding of what social impact means and how it should be measured. And even within a single organisation it is often spread across files, formats, people and time.
+
+- The problem: This makes it almost impossible to understand which programmes work best, what problems or patterns surface across different initiatives, and which projects are showing early warning signs, or just early signs of success. 
 
 ---
 
