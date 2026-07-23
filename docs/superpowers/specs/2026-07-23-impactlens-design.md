@@ -437,6 +437,46 @@ Neither raw Aurelia files nor generated row-level data are committed. Cached loc
 
 The repository also contains a small synthetic fallback project fixture and seed command. It contains only invented data and produces a ready dashboard without requiring the restricted dataset. This protects the pitch if local Aurelia state is removed or the API is unavailable.
 
+### Aurelia measurement themes the generic pipeline should discover
+
+The Aurelia files contain four recurring measurement themes. They are validation targets for the locally seeded demo, not YSI-specific schemas, prompts, filename rules, or metric mappings in application code. The pipeline may propose them only when the uploaded fields and project context support the interpretation.
+
+#### 1. Five-level Impact Funnel — YSI's core IMM metric
+
+The signature framework appears in `AP1and2_April_25`, `AP3_April_2025_Midline`, `AP4_May_2026_Midline`, and `AP_April_2025_extra_data`:
+
+```text
+1. Inform     → people who received education or information
+2. Engage     → people directly engaged with the product or service
+3. Outcomes   → people who experienced a measurable outcome
+4. Impact     → people who experienced deep or lasting impact
+5. Societal   → people who experienced broader societal impact
+```
+
+Each stage also contains evidence about vulnerable or marginalised groups, women's share, how people were reached, and how the number was calculated. A representative pseudonymised row reports `7,500 → 6,450 → 5,600 → 5,600 → 3,500`.
+
+When Claude Code identifies fields as an ordered reach-to-impact funnel within one table, deterministic code may render the five stages and check the expected non-increasing relationship. A later stage exceeding an earlier stage creates a data-quality warning, not an automatic correction: indirect reach, different reporting windows, or number-format ambiguity may explain the result.
+
+#### 2. Organisational performance and financials
+
+Recurring measures include revenue, EBITDA, net profit, MRR, runway, FTE and contract headcount, customer counts, equity/debt/grant funding, current funding requirement, and valuation. These fields are especially prominent in `AP1_April_23_Org_Performance_SA` and the AP1 endline.
+
+Formats such as `R26 766 051`, `R0`, `$60500`, `4686.41`, `120.000`, and `$5,000` must not be aggregated blindly. The MVP may calculate a financial KPI only when currency and number interpretation are unambiguous and values are comparable. Otherwise it reports the field and format inconsistency as evidence or a warning.
+
+#### 3. Knowledge and Behaviour self-assessment — capability lift
+
+The programme measures founder capability across competencies such as Systems, Purpose, IMM, Customer, Design Thinking, Product-Service, Business Strategy, and Unit Economics. Baseline and later-wave files use Knowledge-versus-Behaviour and before/after Likert-style ratings.
+
+Capability lift is calculable only when the semantic plan identifies comparable competency fields, an ordered wave/time field, and—when multiple files are involved—a confirmed exact relationship. Question drift or uncertain joins must prevent a claimed pre/post result. The review may still identify capability measurement as a theme and explain why a longitudinal KPI is unsupported.
+
+#### 4. Programme feedback and satisfaction
+
+Recurring evidence includes NPS-style likelihood-to-recommend scores, module ratings, satisfaction, biggest take-away, suggested improvements, top needs, and programme attribution. Numeric ratings can support an average or distribution when their scales are clear.
+
+Free-text responses are recognised as qualitative evidence and may support framework rationale, but cross-response thematic summarisation is outside the MVP's single interpretation run. The dashboard should identify the available qualitative evidence and position synthesis as a production extension rather than silently ignoring it.
+
+For the live seed, success means the generic semantic plan recognises the five-level funnel plus at least one of organisational performance, capability lift, or programme feedback. It does not need to calculate all four themes. Every calculated theme remains subject to the same formula, coverage, join, and evidence rules as an unseen upload.
+
 ## 12. Technical architecture
 
 ### Stack

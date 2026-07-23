@@ -339,7 +339,7 @@ Expected: failure because orchestration does not exist.
 
 - [ ] **Step 4: Implement minimal warnings and chart selection**
 
-Warnings cover parse failures, missingness `>= 50%`, mixed physical types, invalid numeric/date values, duplicate candidate IDs, low coverage, and rejected joins. Charts are selected deterministically: ordered time → line; category → bar; explicitly ordered same-table stages → funnel; otherwise no chart.
+Warnings cover parse failures, missingness `>= 50%`, mixed physical types, invalid numeric/date values, duplicate candidate IDs, low coverage, rejected joins, and non-increasing violations only for an explicitly identified ordered same-table funnel. Charts are selected deterministically: ordered time → line; category → bar; explicitly ordered same-table stages → funnel; otherwise no chart.
 
 - [ ] **Step 5: Implement pure orchestration**
 
@@ -463,6 +463,17 @@ git commit -m "feat: render explainable impact dashboards"
 
 Enumerate every supported CSV/XLSX file in the supplied directory with Node filesystem APIs, enforce only combined byte/row limits, and call the same shared pipeline as upload. Project context may name Aurelia, but the script contains no source filenames, headers, metrics, or join mappings. Persist ignored local results. The command accepts either a Windows or POSIX absolute directory path.
 
+After seeding, inspect the validated semantic plan against the four documented Aurelia themes:
+
+1. five-level reach-to-impact funnel;
+2. organisational performance and financials;
+3. Knowledge and Behaviour capability lift; and
+4. programme feedback and satisfaction.
+
+The seed passes when the generic plan identifies the five-level funnel plus at least one other theme. Do not patch the prompt or application with YSI headers to force this result. If a theme is detected but not safely calculable, retain it as an explained evidence gap.
+
+For funnel metrics, calculate and warn on non-increasing-stage violations only after Claude Code identifies an ordered same-table funnel. For financial metrics, reject ambiguous currencies or number formats. For capability lift, require comparable fields, ordered waves, and any necessary confirmed exact join. For feedback, calculate only clear numeric scales; treat free text as detected qualitative evidence without cross-response theme synthesis.
+
 - [ ] **Step 2: Add the committed synthetic fallback**
 
 Create invented programme data and a precomputed validated dashboard JSON. `seed:fallback` installs that cache without Claude so the pitch retains a ready example during API failure. Mark the project `synthetic` in the UI.
@@ -492,6 +503,8 @@ Expected: five tests pass, lint/build succeed, both seeded projects open, and no
 - [ ] **Step 5: Rehearse both live paths**
 
 Rehearsal A: open Aurelia → KPIs/chart → Five Dimensions → evidence → warning.
+
+During Rehearsal A, show the discovered five-level funnel and one additional safe Aurelia theme. Open the funnel evidence and, if present, explain one monotonicity warning as a review signal rather than an automatic data correction.
 
 Rehearsal B: new project → unseen upload → one bounded `claude -p` run → remove KPI → generate → evidence.
 
