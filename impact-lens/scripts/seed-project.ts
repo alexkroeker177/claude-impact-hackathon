@@ -37,11 +37,53 @@ import {
   type HarmonizedRecord,
   type OrgRegistryEntry,
 } from "./lib/harmonized";
+import { applyEnrichment, buildOrgDigest, digestHash, enrichOrg, type OrgEnrichment } from "./lib/enrich";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 
 function log(message: string): void {
   console.log(`[seed] ${message}`);
+}
+
+/** Minimal .env.local loader — tsx scripts don't get Next's env handling. Never logs values. */
+function loadEnvLocal(): void {
+  const envPath = path.join(ROOT, "..", ".env.local");
+  if (!fs.existsSync(envPath)) return;
+  for (const line of fs.readFileSync(envPath, "utf-8").split("\n")) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!match) continue;
+    const [, key, rawValue] = match;
+    if (process.env[key] !== undefined) continue;
+    process.env[key] = rawValue.replace(/^["']|["']$/g, "");
+  }
+}
+
+const ENRICH_CACHE_PATH = path.join(ROOT, "..", ".enrichment-cache.json");
+
+type EnrichCache = Record<string, { hash: string; enrichment: OrgEnrichment }>;
+
+function loadEnrichCache(): EnrichCache {
+  try {
+    return JSON.parse(fs.readFileSync(ENRICH_CACHE_PATH, "utf-8")) as EnrichCache;
+  } catch {
+    return {};
+  }
+}
+
+function saveEnrichCache(cache: EnrichCache): void {
+  fs.writeFileSync(ENRICH_CACHE_PATH, JSON.stringify(cache, null, 2));
+}
+
+/** Run tasks with bounded concurrency; individual failures don't stop the pool. */
+async function pool<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const item = items[next++];
+      await worker(item);
+    }
+  });
+  await Promise.all(runners);
 }
 
 async function seedFallback(): Promise<void> {
@@ -141,12 +183,55 @@ async function persistDashboard(input: {
 const FUNNEL_STAGE_ORDER = ["inform", "engage", "outcomes", "impact", "societal"];
 
 /** Default: one independent ImpactLens project per organisation. */
-async function seedHarmonizedByOrg(dirArg: string | undefined, onlyOrgId: string | undefined): Promise<void> {
+async function seedHarmonizedByOrg(
+  dirArg: string | undefined,
+  onlyOrgId: string | undefined,
+  noLlm: boolean,
+): Promise<void> {
   const { records, anomalies, orgs, harmonizedPath } = loadHarmonizedInputs(dirArg);
   const projects = mapHarmonizedByOrg(records, anomalies, orgs, { stageOrder: FUNNEL_STAGE_ORDER });
   const selected = onlyOrgId ? projects.filter((p) => p.orgId === onlyOrgId) : projects;
   if (selected.length === 0) {
     throw new Error(onlyOrgId ? `No records found for org_id "${onlyOrgId}"` : "No organisations found in harmonized.json");
+  }
+
+  // LLM analysis pass: real per-dimension answers from each org's actual figures.
+  const useLlm = !noLlm && !!process.env.ANTHROPIC_API_KEY;
+  if (!useLlm) {
+    log(
+      noLlm
+        ? "Skipping LLM analysis (--no-llm): dimension answers stay deterministic."
+        : "No ANTHROPIC_API_KEY found: dimension answers stay deterministic. Add it to .env.local for real per-org analysis.",
+    );
+  } else {
+    const cache = loadEnrichCache();
+    let done = 0;
+    let fromCache = 0;
+    let failed = 0;
+    await pool(selected, 6, async (p) => {
+      const orgRecords = records.filter((r) => r.org_id === p.orgId);
+      const orgAnomalies = anomalies.filter((a) => a.org_id === p.orgId);
+      const digest = buildOrgDigest(p.projectName, orgRecords, orgAnomalies);
+      const hash = digestHash(digest);
+      try {
+        let enrichment = cache[p.orgId]?.hash === hash ? cache[p.orgId].enrichment : null;
+        if (enrichment) {
+          fromCache += 1;
+        } else {
+          enrichment = await enrichOrg(digest);
+          cache[p.orgId] = { hash, enrichment };
+          saveEnrichCache(cache);
+        }
+        applyEnrichment(p.plan, p.dashboard, enrichment);
+      } catch (err) {
+        failed += 1;
+        log(`LLM analysis failed for ${p.projectName} (kept deterministic answers): ${err instanceof Error ? err.message : err}`);
+      }
+      done += 1;
+      if (done % 10 === 0 || done === selected.length) {
+        log(`LLM analysis: ${done}/${selected.length} organisations (${fromCache} cached, ${failed} failed)`);
+      }
+    });
   }
 
   for (const p of selected) {
@@ -238,6 +323,7 @@ async function seedDirectory(dir: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  loadEnvLocal();
   const args = process.argv.slice(2);
   if (args.includes("--fallback")) {
     await seedFallback();
@@ -249,7 +335,7 @@ async function main(): Promise<void> {
     if (args.includes("--portfolio")) {
       await seedHarmonizedPortfolio(dirArg);
     } else {
-      await seedHarmonizedByOrg(dirArg, orgArg);
+      await seedHarmonizedByOrg(dirArg, orgArg, args.includes("--no-llm"));
     }
     return;
   }

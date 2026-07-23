@@ -20,6 +20,8 @@ export interface RunClaudeStructuredOptions<T> {
   jsonSchema: object;
   validate: (raw: unknown) => T;
   maxTokens?: number;
+  /** Override the model for this call. Defaults to CLAUDE_MODEL env, then claude-opus-4-8. */
+  model?: string;
 }
 
 function timeoutMs(): number {
@@ -85,7 +87,7 @@ Return the corrected JSON object only.`
     const response = await client.messages
       .stream(
         {
-          model: process.env.CLAUDE_MODEL || "claude-opus-4-8",
+          model: opts.model || process.env.CLAUDE_MODEL || "claude-opus-4-8",
           max_tokens: opts.maxTokens ?? 16000,
           thinking: { type: "adaptive" },
           system,

@@ -8,9 +8,11 @@ Two-beat pitch (see [`plans/05-impactlens-reconciliation.md`](../../plans/05-imp
 cd impact-lens
 rm -rf .data
 bun run seed:fallback     # zero-Claude insurance project, ~1s
-bun run seed:harmonized   # one project PER ORGANISATION from the Aurelia data (62 orgs, 2,473 records), ~1s — needs ../pipeline/data/harmonized.json
+bun run seed:harmonized   # one project PER ORGANISATION (62 orgs, 2,473 records) + an LLM analysis pass
 bun run dev
 ```
+
+The harmonized seed now runs a **per-org LLM analysis pass** (Sonnet, 6 concurrent): each organisation's actual figures go to Claude, which writes the Five Dimensions answers and a headline insight grounded in that org's real numbers. First run ≈ 3.5 min; results are cached in `.enrichment-cache.json` (survives `rm -rf .data`), so reseeds are instant. Needs `ANTHROPIC_API_KEY` in `.env.local`; `bun run seed:harmonized -- --no-llm` skips the pass and keeps deterministic template answers. The odd org can fail validation stochastically (it logs and keeps the fallback) — rerun `bun run seed:harmonized -- --org=<id>` after deleting that project row if it matters.
 
 Open `http://localhost:3000` — the home page's "Recent projects" should list 63 seeded projects as `ready` (62 organisations + the synthetic fallback). Each organisation is its own independent project with its own dashboard — nothing is combined across orgs. (The old single-combined-portfolio view is still available via `bun run seed:harmonized-portfolio` if a portfolio-level story is wanted for a different beat.)
 
@@ -22,7 +24,8 @@ Open `http://localhost:3000` — the home page's "Recent projects" should list 6
 4. Click a KPI card → evidence drawer opens with a green **"How it's calculated"** panel in plain language, then sources, exact formula, coverage, and example rows from PureCircle's own files.
 5. **Needs review tab** (shows the count in the tab label) → plain-language items: "Numbers don't add up: funnel.impact (500,000) exceeds funnel.outcomes (2,500)… likely a reporting or unit mix-up. Check AP1_April_23_Org_Performance_SA.csv" plus a team.fte outlier. Nothing is auto-corrected.
 6. **What's missing tab** → what would make the analysis stronger; explicitly not forecasting.
-7. Go back home, click **BrightWell Solutions (AP2)** — the clean contrast: a full five-stage monotonic funnel (1,000 → 500 → 100 → 100 → 100), a healthy assessment sentence, and a single minor parse warning. Proves the checks discriminate rather than flag everything.
+7. Go back home, click **PureFlow Innovations (AP4)** — the contrast beat: a genuine growth story (customers 45 → 1,500, a 33x jump) with solid evidence grades and zero automated flags, yet the LLM analysis still notes what can't be verified (revenue actually fell $7,000 → $6,000). The pitch line: *every* organisation gets real scrutiny — clean-looking ones included.
+8. Scroll to **Five Dimensions of Impact** on either org — these are now genuine LLM-written answers grounded in the org's own figures (real values, dates, trends), not coverage metadata. TerraNova Water Group is the spare wow-card: its headline calls out a claimed 200x reach jump (10,452 → 2,000,000) that the org's own funnel can't explain.
 
 ## Rehearsal B — unseen upload (the genericity story)
 
