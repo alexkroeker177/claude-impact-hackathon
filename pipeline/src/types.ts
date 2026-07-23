@@ -43,7 +43,7 @@ export interface OrgRegistryEntry {
   country: string | null;
 }
 
-export type Grade = "A" | "B" | "C" | "D";
+export type Grade = "A" | "B" | "C" | "D" | "N"; // N = not reported (N/A, TBC, blank-ish) — neutral, not a flag
 
 export interface HarmonizedRecord {
   org_id: string;
@@ -60,6 +60,7 @@ export interface HarmonizedRecord {
   source_file: string;
   source_row: number; // 1-based data-row index (header excluded)
   source_column: string;
+  source_col_index: number;
   grade: Grade;
   grade_reason: string | null;
 }

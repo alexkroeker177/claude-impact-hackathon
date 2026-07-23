@@ -10,14 +10,17 @@ export async function claudeJson<T>(opts: {
   schema: Record<string, unknown>;
   maxTokens?: number;
 }): Promise<T> {
-  const response = await client.messages.create({
-    model: MODEL,
-    max_tokens: opts.maxTokens ?? 16000,
-    thinking: { type: "adaptive" },
-    system: opts.system,
-    output_config: { format: { type: "json_schema", schema: opts.schema } },
-    messages: [{ role: "user", content: opts.prompt }],
-  });
+  // streaming avoids the SDK's 10-minute non-streaming guard at high max_tokens
+  const response = await client.messages
+    .stream({
+      model: MODEL,
+      max_tokens: opts.maxTokens ?? 16000,
+      thinking: { type: "adaptive" },
+      system: opts.system,
+      output_config: { format: { type: "json_schema", schema: opts.schema } },
+      messages: [{ role: "user", content: opts.prompt }],
+    })
+    .finalMessage();
   if (response.stop_reason === "refusal") throw new Error("Claude refused the request");
   if (response.stop_reason === "max_tokens") throw new Error("Output truncated (max_tokens) — raise maxTokens");
   const text = response.content.find((b) => b.type === "text");

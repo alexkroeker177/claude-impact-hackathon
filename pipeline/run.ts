@@ -8,7 +8,8 @@ import { profileFile } from "./src/profile";
 import { generateMapping } from "./src/map";
 import { collectIdentityTuples, resolveEntities } from "./src/resolve";
 import { headerCache, transformFile, type ParseFailure } from "./src/transform";
-import { applyGrades, gradeMethodologies, runValidations } from "./src/validate";
+import { applyGrades, gradeAll, runValidations } from "./src/validate";
+import { applyNormalizations, llmNormalize } from "./src/normalizeLlm";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url)); // repo root — spaces in the path make URL.pathname unusable
 const PIPELINE = join(ROOT, "pipeline");
@@ -101,22 +102,35 @@ if (stage === "transform") {
   process.exit(0);
 }
 
-// ---- S5: validate + grade ----
+// ---- S4b: LLM semantic normalization of ambiguous cells (cached) ----
+const normPath = join(BUILD, "llm-normalize.json");
+let normalized: Awaited<ReturnType<typeof llmNormalize>>;
+if (!force && existsSync(normPath)) {
+  normalized = new Map(Object.entries(JSON.parse(readFileSync(normPath, "utf8"))));
+} else {
+  normalized = await llmNormalize(records);
+  writeJson(normPath, Object.fromEntries(normalized));
+}
+const fixedCount = applyNormalizations(records, normalized, rates.toUsd);
+console.log(`S4b llm-normalize: ${fixedCount} ambiguous cells semantically normalized`);
+
+// ---- S5: validate (on corrected values) + grade every numeric record ----
 const anomalies: Anomaly[] = runValidations(records);
-for (const f of failures) {
-  anomalies.push({ kind: "parse_failure", org_id: "", date: "", detail: `${f.metric}: "${f.raw_value}" (${f.reason})`, metrics: [f.metric], source_file: f.source_file });
+for (const r of records) {
+  if (r.value === null && r.grade === "D") {
+    anomalies.push({ kind: "parse_failure", org_id: r.org_id, date: r.date, detail: `${r.metric}: "${r.raw_value.slice(0, 60)}" (${r.grade_reason})`, metrics: [r.metric], source_file: r.source_file });
+  }
 }
 const gradesPath = join(BUILD, "grades.json");
 let grades: Map<string, { grade: HarmonizedRecord["grade"]; reason: string }>;
 if (!force && existsSync(gradesPath)) {
   grades = new Map(Object.entries(JSON.parse(readFileSync(gradesPath, "utf8"))));
 } else {
-  console.log("S5 grade: methodology grading (Claude)");
-  grades = await gradeMethodologies(records);
+  grades = await gradeAll(records);
   writeJson(gradesPath, Object.fromEntries(grades));
 }
 applyGrades(records, grades);
-console.log(`S5 validate: ${anomalies.length} anomalies, ${grades.size} methodology grades`);
+console.log(`S5 validate: ${anomalies.length} anomalies, ${grades.size} LLM evidence grades`);
 
 // ---- S6: emit ----
 writeJson(join(DATA, "harmonized.json"), records);

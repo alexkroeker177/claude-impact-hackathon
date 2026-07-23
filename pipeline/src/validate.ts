@@ -123,60 +123,64 @@ const GRADES_SCHEMA = {
   },
 };
 
-/** S5b — Claude grades each reach/funnel number by reading the founder's own "how calculated" text. */
-export async function gradeMethodologies(records: HarmonizedRecord[]): Promise<Map<string, { grade: Grade; reason: string }>> {
-  // pair each gradeable count with its sibling methodology text (same org+date, metric = <base>.methodology)
+/** S5b — Claude grades EVERY numeric record: question + raw cell + normalized value + methodology text when present. */
+export async function gradeAll(records: HarmonizedRecord[]): Promise<Map<string, { grade: Grade; reason: string }>> {
+  // sibling "how calculated" texts (same org+date, metric = <base>.methodology) add context where they exist
   const methodologyTexts = new Map<string, string>();
   for (const r of records) {
     if (r.metric.endsWith(".methodology") && typeof r.value === "string") {
       methodologyTexts.set(`${r.org_id}|${r.date}|${r.metric.replace(/\.methodology$/, "")}`, r.value);
     }
   }
-  const items: { id: string; metric: string; value: number; methodology: string }[] = [];
-  for (const r of records) {
-    if (r.type !== "count" || typeof r.value !== "number") continue;
-    const methodology = methodologyTexts.get(`${r.org_id}|${r.date}|${r.metric}`);
-    if (!methodology) continue;
-    items.push({ id: `${r.org_id}|${r.date}|${r.metric}`, metric: r.metric, value: r.value, methodology });
-  }
+  const items = records
+    .filter((r) => r.type !== "text" && typeof r.value === "number" && r.grade !== "N" && r.grade !== "D")
+    .map((r) => ({
+      id: `${r.source_file}|${r.source_row}|${r.source_col_index}`,
+      metric: r.metric,
+      question: r.source_column.slice(0, 160),
+      raw: r.raw_value.slice(0, 220),
+      value: r.value as number,
+      methodology: methodologyTexts.get(`${r.org_id}|${r.date}|${r.metric}`)?.slice(0, 600) ?? null,
+    }));
   if (items.length === 0) return new Map();
 
-  const system = `You grade the evidential quality of self-reported impact numbers from social enterprises, using the founder's own description of how the number was produced. Grades:
-A = measured — based on records, registrations, transaction counts, verified data
-B = calculated — a stated, reasonable calculation from concrete inputs
-C = estimated — extrapolation, multipliers, assumptions (e.g. "each child shares with 3-4 family members"), vague sourcing
-D = contradicted — the methodology contradicts the number, is circular, or clearly implausible
-Be strict: household multipliers, "we assume", and verbal feedback as evidence are C. Reason: one short sentence.`;
+  const system = `You grade the evidential quality of self-reported survey answers from social enterprises. Each item has the survey question, the raw answer, the normalized value, and (sometimes) the founder's own description of how the number was produced. Grades:
+A = measured — records-based, registrations, transaction counts, direct measurements; also precise self-scores answering exactly what was asked (Likert scale picks, 0-10 ratings) and precise financials with stated currency
+B = calculated / plainly self-reported — a reasonable stated calculation, or a clean self-reported figure with nothing suspicious
+C = estimated — extrapolation, multipliers ("each child shares with 3-4 family members"), suspicious roundness combined with vague sourcing, "about/approx" prose, verbal feedback as evidence
+D = doubtful — the answer contradicts itself or the question, is circular, or is clearly implausible for the metric
+Judge the evidence, not the org. A methodology text mentioning assumptions pulls the grade to C even if the number looks precise. Reason: one short sentence.`;
 
   const results = new Map<string, { grade: Grade; reason: string }>();
-  const CHUNK = 25;
-  for (let i = 0; i < items.length; i += CHUNK) {
-    const chunk = items.slice(i, i + CHUNK);
-    const { grades } = await claudeJson<{ grades: { id: string; grade: Grade; reason: string }[] }>({
-      system,
-      prompt: `Grade each item:\n${JSON.stringify(chunk, null, 1)}`,
-      schema: GRADES_SCHEMA,
-      maxTokens: 8000,
-    });
-    for (const g of grades) results.set(g.id, { grade: g.grade, reason: g.reason });
+  const CHUNK = 40;
+  const batches: (typeof items)[] = [];
+  for (let i = 0; i < items.length; i += CHUNK) batches.push(items.slice(i, i + CHUNK));
+  const CONCURRENCY = 6;
+  for (let i = 0; i < batches.length; i += CONCURRENCY) {
+    const group = batches.slice(i, i + CONCURRENCY);
+    console.log(`S5b grade: batches ${i + 1}-${i + group.length}/${batches.length}`);
+    const settled = await Promise.all(
+      group.map((batch) =>
+        claudeJson<{ grades: { id: string; grade: Grade; reason: string }[] }>({
+          system,
+          prompt: `Grade each item:\n${JSON.stringify(batch, null, 1)}`,
+          schema: GRADES_SCHEMA,
+          maxTokens: 16000,
+        }),
+      ),
+    );
+    for (const { grades } of settled) for (const g of grades) results.set(g.id, { grade: g.grade, reason: g.reason });
   }
   return results;
 }
 
-/** Apply Claude grades, but deterministic downgrades (monotonicity D, prose C) keep precedence. */
+/** Apply Claude grades. Deterministic hard-fails (monotonicity D) and not-reported (N) keep precedence. */
 export function applyGrades(records: HarmonizedRecord[], grades: Map<string, { grade: Grade; reason: string }>) {
   for (const r of records) {
-    const g = grades.get(`${r.org_id}|${r.date}|${r.metric}`);
+    const g = grades.get(`${r.source_file}|${r.source_row}|${r.source_col_index}`);
     if (!g) continue;
-    if (r.grade === "D") continue; // deterministic hard-fail wins
-    if (r.grade_reason === null) {
-      // plain default grade → Claude's judgment replaces it in either direction
-      r.grade = g.grade;
-      r.grade_reason = g.reason;
-    } else {
-      // deterministic cap (prose extraction etc.) → can only get worse, never better
-      r.grade = g.grade > r.grade ? g.grade : r.grade;
-      r.grade_reason = `${r.grade_reason}; ${g.reason}`;
-    }
+    if (r.grade === "D" || r.grade === "N") continue;
+    r.grade = g.grade;
+    r.grade_reason = g.reason;
   }
 }

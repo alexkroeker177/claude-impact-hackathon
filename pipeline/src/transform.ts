@@ -98,11 +98,13 @@ export function transformFile(opts: {
       const raw = (cells[col.index] ?? "").trim();
       if (raw === "") continue;
 
+      // year-only overrides ("2022") normalize to YYYY-01 so date grouping/sorting stays consistent
+      const override = col.date_override && /^\d{4}$/.test(col.date_override) ? `${col.date_override}-01` : col.date_override;
       const base: HarmonizedRecord = {
         org_id: orgId,
         cohort,
         wave: entry.wave,
-        date: col.date_override ?? entry.date,
+        date: override ?? entry.date,
         metric: col.metric,
         type: col.type,
         value: null,
@@ -113,12 +115,17 @@ export function transformFile(opts: {
         source_file: entry.file,
         source_row: rowIndex,
         source_column: headerOf(mapping, col.index),
+        source_col_index: col.index,
         grade: DEFAULT_GRADE[col.type],
         grade_reason: null,
       };
 
       if (col.type === "text") {
         base.value = raw;
+        if (/^(n\/?a|tbc|none|unknown|not sure|nil|-+)$/i.test(raw.trim())) {
+          base.grade = "N";
+          base.grade_reason = "Not reported";
+        }
         records.push(base);
         continue;
       }
