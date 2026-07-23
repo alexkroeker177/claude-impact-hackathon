@@ -1,2 +1,11 @@
 .DS_Store
 YSI Dataset/
+Zollhof Dataset/
+.env
+.env.*
+node_modules/
+build/
+# derived dataset content — do-not-redistribute house rule (public repo!)
+data/
+pipeline/mappings/
+pipeline/registry/

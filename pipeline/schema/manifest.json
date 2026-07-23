@@ -1,0 +1,24 @@
+{
+  "datasetDir": "YSI Dataset/Aurelia_Propel_IMM Dataset",
+  "files": [
+    { "file": "AP1_Baseline_Nov_22_SA.csv", "cohort": "AP1", "wave": "baseline", "date": "2022-11", "delimiter": ",", "lang": "en" },
+    { "file": "AP1_April_2023_SA__Knowledge___Behaviour.csv", "cohort": "AP1", "wave": "kb-apr-2023", "date": "2023-04", "delimiter": ",", "lang": "en", "deferred": true },
+    { "file": "AP1_April_23_Org_Performance_SA.csv", "cohort": "AP1", "wave": "orgperf-apr-2023", "date": "2023-04", "delimiter": ",", "lang": "en" },
+    { "file": "AP1_October_2023_SA.csv", "cohort": "AP1", "wave": "followup-oct-2023", "date": "2023-10", "delimiter": ",", "lang": "en" },
+    { "file": "AP1_October_2023_BRA.csv", "cohort": "AP1", "wave": "followup-oct-2023", "date": "2023-10", "delimiter": ",", "lang": "pt" },
+    { "file": "AP1_Endline_April_24_SA.csv", "cohort": "AP1", "wave": "endline", "date": "2024-04", "delimiter": ",", "lang": "en" },
+    { "file": "AP1_June_2024_BRA.csv", "cohort": "AP1", "wave": "followup-jun-2024", "date": "2024-06", "delimiter": ",", "lang": "pt" },
+    { "file": "AP1_October_2024_SA_BR.csv", "cohort": "AP1", "wave": "followup-oct-2024", "date": "2024-10", "delimiter": ",", "lang": "en" },
+    { "file": "AP1_April_2025_Short_Beneficiary_Survey.csv", "cohort": "AP1", "wave": "followup-apr-2025", "date": "2025-04", "delimiter": ",", "lang": "en" },
+    { "file": "AP1and2_April_25.csv", "cohort": "mixed", "wave": "followup-apr-2025", "date": "2025-04", "delimiter": ",", "lang": "en" },
+    { "file": "AP2_Baseline_October_2023.csv", "cohort": "AP2", "wave": "baseline", "date": "2023-10", "delimiter": ",", "lang": "en" },
+    { "file": "AP2_March_2024.csv", "cohort": "AP2", "wave": "kb-mar-2024", "date": "2024-03", "delimiter": ",", "lang": "en", "deferred": true },
+    { "file": "AP2_October_2024.csv", "cohort": "AP2", "wave": "followup-oct-2024", "date": "2024-10", "delimiter": ",", "lang": "en" },
+    { "file": "AP3_Baseline_October_2024.csv", "cohort": "AP3", "wave": "baseline", "date": "2024-10", "delimiter": ";", "lang": "en" },
+    { "file": "AP3_April_2025_Midline.csv", "cohort": "AP3", "wave": "midline", "date": "2025-04", "delimiter": ",", "lang": "en" },
+    { "file": "AP4_2025_2026_Baseline_Survey.csv", "cohort": "AP4", "wave": "baseline", "date": "2025-10", "delimiter": ",", "lang": "en" },
+    { "file": "AP4_May_2026_Midline.csv", "cohort": "AP4", "wave": "midline", "date": "2026-05", "delimiter": ",", "lang": "en" },
+    { "file": "AP_April_2025_extra_data.csv", "cohort": "mixed", "wave": "prize-apr-2025", "date": "2025-04", "delimiter": ";", "lang": "en" },
+    { "file": "IMM_Assessment_October_2025.csv", "cohort": "mixed", "wave": "imm-oct-2025", "date": "2025-10", "delimiter": ";", "lang": "en" }
+  ]
+}

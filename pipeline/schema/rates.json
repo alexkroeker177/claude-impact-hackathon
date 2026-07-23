@@ -1,0 +1,4 @@
+{
+  "note": "DEMO-GRADE fixed conversion rates to USD (approx mid-2026). Production would use dated historical rates per wave.",
+  "toUsd": { "USD": 1.0, "ZAR": 0.055, "NGN": 0.00065, "BRL": 0.18, "EUR": 1.08, "KES": 0.0077, "GBP": 1.27 }
+}
