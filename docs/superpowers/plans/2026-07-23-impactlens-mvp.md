@@ -6,7 +6,7 @@
 
 **Architecture:** A pure analysis core parses and profiles uploaded tables, runs one bounded `claude -p` subprocess in a read-only analysis workspace, validates its semantic plan, and calculates accepted KPI definitions directly from parsed rows. A thin Next.js layer adds the upload/review/dashboard flow and caches aggregate results in SQLite; raw files remain unchanged on ignored local disk.
 
-**Tech Stack:** Next.js App Router, TypeScript, Bun, Tailwind CSS, Papa Parse, SheetJS, Claude Code CLI, Zod, SQLite via `better-sqlite3`, Recharts, Vitest.
+**Tech Stack:** Next.js App Router, TypeScript, Bun, Tailwind CSS, Papa Parse, SheetJS, Claude Code CLI, Zod, SQLite via Bun's built-in `bun:sqlite`, Recharts, Vitest.
 
 ## Current repository status — 2026-07-23
 
@@ -15,7 +15,9 @@
 - Claude receives structural profiles and aggregate ranges only—never raw uploads or sample rows. Interpretation is atomically single-run per project; repeat requests return the saved plan.
 - Raw uploads remain unchanged under ignored `.data/`; same-named files receive stable non-path identities so source references cannot collide.
 - Strict Zod contracts validate semantic plans and persisted dashboards. Generation reuses the saved plan and cannot launch Claude.
-- The single requested final test run passed all 10 tests across 3 files. Per user instruction, lint, production build, seed execution, and live/manual rehearsal were not run afterward.
+- Current verification: 12/12 Vitest tests pass, ESLint passes, and the Next.js production build completes. `/projects`, `/projects/demo`, and `/projects/new` return 200 from the built app; a fresh multipart CSV upload returns 201.
+- The synthetic fallback seed installs successfully. The 19-file Aurelia directory is within upload limits, but its one-run Claude interpretation still exceeds the bounded 180-second seed timeout; this remains the only known MVP acceptance blocker.
+- Review cards now expose source fields, formula, confidence, estimated field coverage, rationale, and exclusions. Project cards show source/KPI counts, charts render their declared bar/line/funnel type, and dashboard assessment text is assembled deterministically from calculated results.
 - The plan's intermediate red/green and per-task commit checkpoints were intentionally skipped under the build-first/time-saving instruction; implementation evidence is recorded at the final integrated checkpoint.
 - Windows is the implementation and test platform. macOS remains designed for portability but explicitly not smoke-tested.
 
@@ -514,7 +516,7 @@ git status --short
 
 Expected: no YSI-specific application logic; `.data` ignored; no supplied dataset staged.
 
-- [ ] **Step 4: Run final verification**
+- [ ] **Step 4: Run final verification** — tests/lint/build and fallback seed pass; Aurelia seed remains blocked by bounded Claude timeout.
 
 ```powershell
 bun test

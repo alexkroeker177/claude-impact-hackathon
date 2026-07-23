@@ -167,7 +167,7 @@ export async function runAnalysis(input: RunAnalysisInput): Promise<AnalysisArti
       status: "ready",
     },
     assessment: {
-      summary: semanticPlan.summary,
+      summary: deterministicAssessment(dashboardMetrics, warnings),
       confidence: aggregateConfidence(metricDefinitions, averageCoverage),
       coverage: averageCoverage,
     },
@@ -196,6 +196,23 @@ export async function runAnalysis(input: RunAnalysisInput): Promise<AnalysisArti
   };
 
   return { dashboard, tables, profiles, semanticPlan, metricDefinitions, metricResults, joinAudit, warnings };
+}
+
+function deterministicAssessment(metrics: DashboardMetric[], warnings: AnalysisWarning[]): string {
+  if (!metrics.length) {
+    return "No accepted KPI could be calculated safely from the available uploaded data.";
+  }
+  const metricSummary = metrics.slice(0, 4).map((metric) => {
+    const unit = metric.unit && !metric.displayValue.toLowerCase().includes(metric.unit.toLowerCase()) ? ` ${metric.unit}` : "";
+    return `${metric.label}: ${metric.displayValue}${unit} (${Math.round(metric.coverage * 100)}% coverage)`;
+  }).join("; ");
+  const highWarnings = warnings.filter((warning) => warning.severity === "high").length;
+  const warningSummary = highWarnings
+    ? ` ${highWarnings} high-priority data warning${highWarnings === 1 ? " requires" : "s require"} review.`
+    : warnings.length
+      ? ` ${warnings.length} data warning${warnings.length === 1 ? " is" : "s are"} available for review.`
+      : " No material data-quality warning was detected by the supported checks.";
+  return `Calculated ${metrics.length} accepted KPI${metrics.length === 1 ? "" : "s"}. ${metricSummary}.${warningSummary}`;
 }
 
 function enforceByteLimit(files: FileInput[]): void {

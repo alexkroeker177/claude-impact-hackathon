@@ -151,6 +151,9 @@ describe("ImpactLens analysis core", () => {
         formula: { kind: "atomic", operation: "median", field: { sourceId, fieldId: "amount" } },
       }],
     }, profiles, context)).toThrow();
+    expect(validateSemanticPlan(validPlan, [{ sourceId, fields: [{ fieldId: "amount", inferredType: "text" }] }], context).proposedMetrics).toHaveLength(0);
+    expect(validateSemanticPlan(validPlan, [{ sourceId, fields: [{ fieldId: "amount", inferredType: "percentage" }] }], context).proposedMetrics).toHaveLength(0);
+    expect(validateSemanticPlan(validPlan, [{ sourceId, fields: [{ fieldId: "amount", inferredType: "number", invalidCount: 1, mixedTypes: true }] }], context).proposedMetrics).toHaveLength(1);
     expect(() => validateSemanticPlan({
       ...validPlan,
       frameworkTags: [{
@@ -234,6 +237,8 @@ describe("ImpactLens analysis core", () => {
     });
 
     expect(analysis.dashboard.metrics).toHaveLength(2);
+    expect(analysis.dashboard.assessment.summary).toContain("Sessions delivered");
+    expect(analysis.dashboard.assessment.summary).not.toBe(deterministicPlan.summary);
     expect(analysis.dashboard.chart?.type).toBe("bar");
     expect(analysis.dashboard.fiveDimensions).toHaveLength(5);
     expect(analysis.dashboard.warnings.some((warning) => /missingness/i.test(warning.title))).toBe(true);

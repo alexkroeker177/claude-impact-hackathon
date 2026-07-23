@@ -119,7 +119,7 @@ export function ProjectWizard() {
       <div className="mx-auto max-w-5xl">
         <header className="flex items-center justify-between gap-4"><Link className="text-lg font-bold tracking-tight" href="/">ImpactLens<span className="text-emerald-700">.</span></Link><Link className="text-sm font-semibold text-slate-600 hover:text-slate-950" href="/projects">All projects</Link></header>
 
-        <div className="mt-12 max-w-3xl"><p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">New impact assessment</p><h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">Upload once. Review the logic. Keep the evidence.</h1><p className="mt-5 text-lg leading-8 text-slate-600">ImpactLens profiles every table, makes one bounded interpretation request, then calculates only the KPIs you accept.</p></div>
+        <div className="mt-12 max-w-3xl"><p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">New impact assessment</p><h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">Upload once. Review the logic. Keep the evidence.</h1><p className="mt-5 text-lg leading-8 text-slate-600">ImpactLens profiles every table, makes one bounded interpretation request, then calculates only the KPIs you accept.</p><p className="mt-3 text-sm leading-6 text-slate-500">Claude receives project context and compact structural profiles with aggregate ranges—not your raw files or complete source rows.</p></div>
 
         <Progress stage={stage} />
         {notice ? <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-950" role="alert"><span>{notice}</span>{projectId && !semanticPlan ? <button className="rounded-full border border-amber-400 bg-white px-4 py-2 text-xs font-bold text-amber-950" onClick={() => void retryInterpretation()} type="button">Retry interpretation</button> : null}</div> : null}
@@ -143,9 +143,9 @@ function Field({ label, value, onChange, placeholder, required = false }: { labe
 }
 
 function Progress({ stage }: { stage: WizardStage }) {
-  const stages: Array<{ id: WizardStage; label: string }> = [{ id: "details", label: "Upload" }, { id: "interpreting", label: "Understand" }, { id: "review", label: "Review" }, { id: "generating", label: "Generate" }];
-  const activeIndex = stage === "uploading" ? 0 : stages.findIndex((item) => item.id === stage);
-  return <ol className="mt-10 flex overflow-hidden rounded-2xl border border-slate-200 bg-white" aria-label="Project progress">{stages.map((item, index) => <li className={`flex flex-1 items-center gap-2 px-3 py-3 text-xs font-bold sm:px-5 sm:text-sm ${index <= activeIndex ? "bg-emerald-50 text-emerald-900" : "text-slate-400"}`} key={item.id}><span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${index <= activeIndex ? "bg-emerald-700 text-white" : "bg-slate-100"}`}>{index + 1}</span><span className="hidden sm:inline">{item.label}</span></li>)}</ol>;
+  const stages = ["Reading files", "Profiling tables", "Interpreting data", "Preparing review"];
+  const activeIndex = stage === "details" ? -1 : stage === "uploading" ? 1 : stage === "interpreting" ? 2 : 3;
+  return <ol className="mt-10 flex overflow-hidden rounded-2xl border border-slate-200 bg-white" aria-label="Project progress">{stages.map((label, index) => <li className={`flex flex-1 items-center gap-2 px-3 py-3 text-xs font-bold sm:px-5 sm:text-sm ${index <= activeIndex ? "bg-emerald-50 text-emerald-900" : "text-slate-400"}`} key={label}><span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${index <= activeIndex ? "bg-emerald-700 text-white" : "bg-slate-100"}`}>{index + 1}</span><span className="hidden sm:inline">{label}</span></li>)}</ol>;
 }
 
 async function requestJson<T = unknown>(url: string, init: RequestInit) {

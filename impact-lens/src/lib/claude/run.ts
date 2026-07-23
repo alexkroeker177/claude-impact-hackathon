@@ -328,7 +328,9 @@ async function runProcess(executable: string, args: string[], runDirectory: stri
 }
 
 export async function runClaudeStructured<T>(input: RunClaudeStructuredInput<T>): Promise<T> {
-  const serializedPacket = JSON.stringify(input.analysisInput);
+  // Keep each nested object on its own bounded line so Claude's line-oriented
+  // Read tool can consume wide profiles without truncating one giant line.
+  const serializedPacket = lineBoundedJson(input.analysisInput);
   if (serializedPacket === undefined) {
     throw new ClaudeRunError("INVALID_OUTPUT", "The analysis packet must be JSON serializable.", {
       retryable: false,
@@ -371,6 +373,33 @@ export async function runClaudeStructured<T>(input: RunClaudeStructuredInput<T>)
   const executable = await resolveClaudeExecutable();
   const stdout = await runProcess(executable, args, runDirectory);
   return parseClaudeStructuredOutput(stdout, input.schema);
+}
+
+function lineBoundedJson(value: unknown): string | undefined {
+  const compact = JSON.stringify(value);
+  if (compact === undefined) return undefined;
+  let output = "";
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < compact.length; index += 1) {
+    const character = compact[index];
+    output += character;
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\" && inString) {
+      escaped = true;
+      continue;
+    }
+    if (character === '"') {
+      inString = !inString;
+      continue;
+    }
+    const previous = compact[index - 1];
+    if (!inString && character === "," && (previous === "}" || previous === "]")) output += "\n";
+  }
+  return output;
 }
 
 /** Exposed for security-focused tests without leaking the complete process environment. */

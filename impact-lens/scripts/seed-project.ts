@@ -12,6 +12,7 @@ import {
 import { parseTabularFile, type ParsedTable } from "../src/lib/files/parse";
 import { profileTable, type SourceProfile } from "../src/lib/files/profile";
 import { interpretProject } from "../src/lib/semantic/interpret";
+import { ClaudeRunError } from "../src/lib/claude/run";
 import { runAnalysis } from "../src/lib/analysis/pipeline";
 import { dashboardAnalysisSchema } from "../src/types/dashboard";
 
@@ -314,5 +315,8 @@ function stringValue(value: unknown, fallback?: string) {
 main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : "Seed failed.";
   console.error(`Seed failed: ${message}`);
+  if (process.env.IMPACTLENS_DEBUG === "1" && error instanceof ClaudeRunError && error.causeDetail) {
+    console.error(error.causeDetail);
+  }
   process.exitCode = 1;
 });

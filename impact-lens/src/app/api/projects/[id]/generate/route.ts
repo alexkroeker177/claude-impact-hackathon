@@ -26,9 +26,6 @@ export async function POST(request: Request, context: RouteContext<"/api/project
   }
 
   const acceptedMetricIds = normaliseStringArray(body.acceptedMetricIds);
-  if (acceptedMetricIds.length === 0) {
-    return Response.json({ error: "Keep at least one proposed KPI to generate a dashboard." }, { status: 400 });
-  }
   const availableMetricIds = new Set(savedPlan.data.proposedMetrics.map((metric) => metric.metricId));
   if (acceptedMetricIds.some((metricId) => !availableMetricIds.has(metricId))) {
     return Response.json({ error: "The review contains a KPI that is not part of the saved interpretation." }, { status: 400 });

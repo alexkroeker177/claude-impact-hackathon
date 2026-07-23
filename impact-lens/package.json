@@ -9,8 +9,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed:aurelia": "tsx scripts/seed-project.ts",
-    "seed:fallback": "tsx scripts/seed-project.ts --fallback"
+    "seed:aurelia": "bun scripts/seed-project.ts",
+    "seed:fallback": "bun scripts/seed-project.ts --fallback"
   },
   "dependencies": {
     "next": "16.2.11",

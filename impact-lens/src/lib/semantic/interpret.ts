@@ -83,9 +83,18 @@ export function compactRedactedProfiles(profiles: SemanticSourceProfile[]): Mode
           invalidCount: asFiniteNumber(fieldRecord.invalidCount),
           duplicateCount: asFiniteNumber(fieldRecord.duplicateCount),
         };
-      }),
+      }).sort((left, right) => fieldUtility(right) - fieldUtility(left)),
     };
   });
+}
+
+function fieldUtility(field: ModelVisibleField): number {
+  const typeWeight = ["integer", "number", "percentage"].includes(field.inferredType ?? "")
+    ? 4
+    : ["date", "category", "identifier", "currency"].includes(field.inferredType ?? "")
+      ? 2
+      : 1;
+  return typeWeight + (1 - (field.nullRate ?? 1)) - (field.mixedTypes ? 2 : 0) - ((field.invalidCount ?? 0) > 0 ? 1 : 0);
 }
 
 const semanticPrompt = [

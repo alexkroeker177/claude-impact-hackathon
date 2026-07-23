@@ -45,6 +45,30 @@ function assertMetricUsesOneSource(metric: MetricDefinition): void {
   }
 }
 
+function fieldProfile(reference: FieldRef, profiles: SemanticSourceProfile[]): Record<string, unknown> | undefined {
+  return profiles.find((profile) => profile.sourceId === reference.sourceId)?.fields
+    .find((field) => field.fieldId === reference.fieldId) as Record<string, unknown> | undefined;
+}
+
+function metricTypesAreCompatible(metric: MetricDefinition, profiles: SemanticSourceProfile[]): boolean {
+  const numericTypes = new Set(["integer", "number"]);
+  const expressions = metric.formula.kind === "atomic"
+    ? [metric.formula]
+    : [metric.formula.numerator, metric.formula.denominator];
+  for (const expression of expressions) {
+    if (expression.operation !== "sum" && expression.operation !== "average") continue;
+    const profile = fieldProfile(expression.field, profiles);
+    const inferredType = typeof profile?.inferredType === "string" ? profile.inferredType : undefined;
+    if (inferredType && !numericTypes.has(inferredType)) return false;
+  }
+  if (metric.groupBy) {
+    const profile = fieldProfile(metric.groupBy, profiles);
+    const inferredType = typeof profile?.inferredType === "string" ? profile.inferredType : undefined;
+    if (inferredType && !new Set(["identifier", "category", "text", "date"]).has(inferredType)) return false;
+  }
+  return true;
+}
+
 function userSuppliedReferenceIds(context: SemanticUserContext): Set<string> {
   return new Set(
     (context.userSuppliedReferenceIds ?? []).map((referenceId) => referenceId.trim().toUpperCase()),
@@ -141,6 +165,7 @@ export function validateSemanticPlan(
   for (const metric of parsed.proposedMetrics) {
     validateMetricDefinition(metric, profiles);
   }
+  const compatibleMetrics = parsed.proposedMetrics.filter((metric) => metricTypesAreCompatible(metric, profiles));
 
   const coverageGroups = [
     parsed.theoryOfChangeCoverage.activity,
@@ -163,7 +188,7 @@ export function validateSemanticPlan(
     assertFrameworkTagIsAllowed(tag, userContext);
   }
 
-  return parsed;
+  return { ...parsed, proposedMetrics: compatibleMetrics };
 }
 
 export function isAllowedFrameworkTag(
