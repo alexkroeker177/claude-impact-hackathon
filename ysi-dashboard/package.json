@@ -1,0 +1,22 @@
+{
+  "name": "ysi-dataset-xray",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "data": "tsx scripts/build-data.ts",
+    "dev": "pnpm data && vite --host 0.0.0.0",
+    "build": "pnpm data && tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.7",
+    "papaparse": "^5.5.3"
+  },
+  "devDependencies": {
+    "@types/papaparse": "^5.3.16",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}
