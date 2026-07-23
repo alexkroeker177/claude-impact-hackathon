@@ -140,8 +140,8 @@ async function seedFallback() {
   const fixturePath = resolve(process.cwd(), "fixtures", "synthetic-dashboard.json");
   const dashboard = parseDashboard(await readFile(fixturePath, "utf8"));
   const fixtureProject = asRecord(dashboard.project);
-  const projectName = stringValue(fixtureProject.name, "Synthetic impact demo");
-  const goal = stringValue(fixtureProject.goal, "Show a precomputed impact dashboard.");
+  const projectName = stringValue(fixtureProject.name) ?? "Synthetic impact demo";
+  const goal = stringValue(fixtureProject.goal) ?? "Show a precomputed impact dashboard.";
 
   const project = getProject(SYNTHETIC_PROJECT_ID) ?? createProject({
     id: SYNTHETIC_PROJECT_ID,

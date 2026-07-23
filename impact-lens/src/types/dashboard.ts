@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 export const confidenceSchema = z.enum(["low", "medium", "high"]);
 export const projectStatusSchema = z.enum(["ready", "processing", "failed"]);

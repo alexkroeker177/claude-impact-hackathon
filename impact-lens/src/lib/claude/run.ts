@@ -3,12 +3,12 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
-import { z } from "zod";
+import * as z from "zod";
 
 const DEFAULT_BUDGET_USD = 1;
 const MAX_BUDGET_USD = 5;
-const DEFAULT_TIMEOUT_MS = 90_000;
-const MAX_TIMEOUT_MS = 120_000;
+const DEFAULT_TIMEOUT_MS = 120_000;
+const MAX_TIMEOUT_MS = 180_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_STDOUT_BYTES = 1_000_000;
 const MAX_STDERR_BYTES = 128_000;
@@ -139,7 +139,7 @@ function scrubClaudeEnvironment(): NodeJS.ProcessEnv {
       const normalizedKey = key.toUpperCase();
       return normalizedKey !== "CLAUDECODE" && !normalizedKey.startsWith("CLAUDE_CODE_");
     }),
-  );
+  ) as NodeJS.ProcessEnv;
 }
 
 function classifyNonZeroExit(stderr: string, stdout: string): ClaudeRunError {
@@ -205,6 +205,13 @@ export function parseClaudeStructuredOutput<T>(stdout: string, schema: z.ZodType
   return result.data;
 }
 
+/** Claude Code validates Draft 7 keywords but rejects an unresolved meta-schema URI. */
+export function claudeJsonSchema<T>(schema: z.ZodType<T>): unknown {
+  const generated = z.toJSONSchema(schema, { target: "draft-7" }) as Record<string, unknown>;
+  delete generated.$schema;
+  return generated;
+}
+
 function appendWithCap(
   current: Buffer,
   chunk: Buffer,
@@ -218,11 +225,13 @@ function appendWithCap(
 
 async function runProcess(executable: string, args: string[], runDirectory: string): Promise<string> {
   return new Promise((resolvePromise, rejectPromise) => {
-    let stdout = Buffer.alloc(0);
-    let stderr = Buffer.alloc(0);
+    let stdout: Buffer = Buffer.alloc(0);
+    let stderr: Buffer = Buffer.alloc(0);
     let settled = false;
     let terminationError: ClaudeRunError | undefined;
     let graceTimer: NodeJS.Timeout | undefined;
+    // Assigned after the child process is created; settle() closes over it.
+    // eslint-disable-next-line prefer-const
     let timeoutTimer: NodeJS.Timeout | undefined;
 
     const settle = (callback: () => void) => {
@@ -336,7 +345,7 @@ export async function runClaudeStructured<T>(input: RunClaudeStructuredInput<T>)
   const packetPath = join(runDirectory, "analysis-input.json");
   await writeFile(packetPath, serializedPacket, { encoding: "utf8", mode: 0o600 });
 
-  const jsonSchema = z.toJSONSchema(input.schema);
+  const jsonSchema = claudeJsonSchema(input.schema);
   const args = [
     "-p",
     input.prompt,

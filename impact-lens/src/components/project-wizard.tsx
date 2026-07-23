@@ -31,10 +31,11 @@ export function ProjectWizard() {
   useEffect(() => {
     const savedProjectId = new URLSearchParams(window.location.search).get("project");
     if (!savedProjectId) return;
+    const projectIdToRestore = savedProjectId;
 
     async function loadSavedReview() {
       try {
-        const saved = await requestJson<InterpretationResponse>(`/api/projects?id=${encodeURIComponent(savedProjectId)}`, { method: "GET" });
+        const saved = await requestJson<InterpretationResponse>(`/api/projects?id=${encodeURIComponent(projectIdToRestore)}`, { method: "GET" });
         const project = saved.project as { id: string; semanticPlan?: unknown } | undefined;
         if (!project?.semanticPlan) return;
         setProjectId(project.id);

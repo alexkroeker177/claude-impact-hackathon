@@ -484,7 +484,7 @@ For the live seed, success means the generic semantic plan recognises the five-l
 - Next.js App Router with TypeScript
 - Bun for packages and scripts
 - Tailwind CSS with a small local component layer
-- SQLite through `better-sqlite3`
+- SQLite through Bun's built-in `bun:sqlite` driver
 - Papa Parse for CSV
 - SheetJS for XLSX
 - Claude Code CLI in non-interactive `-p` mode

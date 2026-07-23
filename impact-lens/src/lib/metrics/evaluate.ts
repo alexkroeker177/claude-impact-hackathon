@@ -56,6 +56,7 @@ export function evaluateMetric(
   tables: ParsedTable[],
   _confirmedJoin?: ConfirmedExactJoin,
 ): MetricResult {
+  void _confirmedJoin;
   assertFormulaIsSupported(definition.formula);
   const sourceId = sourceIdFor(definition);
   const table = tables.find((candidate) => candidate.sourceId === sourceId);

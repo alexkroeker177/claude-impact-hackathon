@@ -118,8 +118,8 @@ class UploadError extends Error {
   }
 }
 
-function formEntries(formData: FormData) {
-  return [...formData.values()].filter((value): value is File => value instanceof File);
+function formEntries(formData: FormData): File[] {
+  return formData.getAll("files").filter((value) => typeof value !== "string") as File[];
 }
 
 function requiredText(value: FormDataEntryValue | null, label: string) {

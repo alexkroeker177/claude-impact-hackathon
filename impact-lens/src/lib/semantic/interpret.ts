@@ -59,13 +59,14 @@ function asAggregateRange(
 export function compactRedactedProfiles(profiles: SemanticSourceProfile[]): ModelVisibleProfile[] {
   return profiles.map((profile) => {
     const record = profile as Record<string, unknown>;
+    const warnings = record.parseWarnings ?? record.warnings;
     return {
       sourceId: profile.sourceId,
       label: asString(record.filename) ?? asString(record.name),
       sheetName: asString(record.sheetName),
       rowCount: asFiniteNumber(record.rowCount),
-      parseWarnings: Array.isArray(record.parseWarnings ?? record.warnings)
-        ? (record.parseWarnings ?? record.warnings as unknown[]).filter((warning): warning is string => typeof warning === "string").slice(0, 10)
+      parseWarnings: Array.isArray(warnings)
+        ? warnings.filter((warning): warning is string => typeof warning === "string").slice(0, 10)
         : undefined,
       fields: profile.fields.map((field) => {
         const fieldRecord = field as Record<string, unknown>;
@@ -92,6 +93,7 @@ const semanticPrompt = [
   "Use only its source IDs and field IDs; never invent fields, joins, values, formulas, or standards identifiers.",
   "Propose no more than four calculable KPIs. Each KPI must use one table only and a supported atomic formula or one-level ratio.",
   "Describe uncertainty and missing evidence explicitly. Framework tags are candidate alignment only, never compliance.",
+  "Be concise: keep the summary under four sentences, each rationale under two sentences, and uncertainties to at most eight short items.",
   "Do not supply official SDG indicator IDs or IRIS+ metric codes unless they appear exactly in userSuppliedReferenceIds.",
   "Return only JSON that matches the provided JSON Schema.",
 ].join(" ");

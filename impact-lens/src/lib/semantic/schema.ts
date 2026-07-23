@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 /** A stable reference to a field emitted by the deterministic parser. */
 export const fieldRefSchema = z

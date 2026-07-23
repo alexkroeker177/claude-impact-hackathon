@@ -4,8 +4,7 @@ ImpactLens turns unfamiliar CSV/XLSX programme data into reviewed, evidence-back
 
 ## Requirements
 
-- Bun 1.3+
-- Node-compatible native build support for `better-sqlite3`
+- Bun 1.3+ with its built-in cross-platform SQLite runtime
 - Claude Code installed and authenticated for live interpretation
 
 ## Run locally
@@ -29,7 +28,7 @@ Set `CLAUDE_PATH` only when `claude` is not available on `PATH`. Authentication 
 CLAUDE_PATH=
 CLAUDE_MODEL=
 CLAUDE_MAX_BUDGET_USD=1.00
-CLAUDE_TIMEOUT_MS=90000
+CLAUDE_TIMEOUT_MS=120000
 ```
 
 The application accepts any number of CSV/XLSX files subject to a 10 MB combined limit and 25,000 parsed rows. Raw uploads and generated state stay unchanged under ignored `.data/`.

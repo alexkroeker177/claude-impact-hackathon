@@ -1,22 +1,21 @@
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 
 const defaultDatabasePath = resolve(process.cwd(), ".data", "impactlens.db");
 
 declare global {
-  // eslint-disable-next-line no-var
-  var __impactLensDatabase: Database.Database | undefined;
+  var __impactLensDatabase: Database | undefined;
 }
 
 function databasePath() {
   return resolve(process.env.IMPACTLENS_DB_PATH || defaultDatabasePath);
 }
 
-function initialise(database: Database.Database) {
-  database.pragma("foreign_keys = ON");
-  database.pragma("journal_mode = WAL");
+function initialise(database: Database) {
+  database.exec("PRAGMA foreign_keys = ON");
+  database.exec("PRAGMA journal_mode = WAL");
   database.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
@@ -87,7 +86,7 @@ function initialise(database: Database.Database) {
   database.exec("CREATE INDEX IF NOT EXISTS metrics_project_metric_id_idx ON metrics(project_id, metric_id)");
 }
 
-function ensureColumn(database: Database.Database, table: string, column: string, definition: string) {
+function ensureColumn(database: Database, table: string, column: string, definition: string) {
   const columns = database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
   if (!columns.some((candidate) => candidate.name === column)) {
     database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
@@ -98,7 +97,7 @@ export function getDatabase() {
   if (!globalThis.__impactLensDatabase) {
     const path = databasePath();
     mkdirSync(dirname(path), { recursive: true });
-    const database = new Database(path);
+    const database = new Database(path, { strict: true });
     initialise(database);
     globalThis.__impactLensDatabase = database;
   }
