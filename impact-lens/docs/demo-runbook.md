@@ -34,6 +34,17 @@ Target: under three minutes.
 
 Recovery: if Claude times out or is unauthenticated, show that profiles remain saved, retry once, then return to the fallback project.
 
+## Hackathon-machine rehearsal record
+
+Verified on Windows on 2026-07-23 against the production build:
+
+- `/` redirects to `/projects`; the project list and cached dashboards return HTTP 200.
+- The generic Aurelia seed loaded 19 CSV files as 19 tables and produced four accepted KPIs. Its cached dashboard opens without another Claude call.
+- An unseen XLSX workbook with two worksheets uploaded as six rows, reached KPI review after one Claude run, and produced four deterministic KPIs plus a grouped bar chart and evidence. Interpretation took about 92 seconds; dashboard generation took under two seconds.
+- The synthetic fallback installs with `bun run seed:fallback` and remains available at `/projects/demo` without Claude.
+
+For the pitch, allow two minutes for the live Claude interpretation even though the target script is three minutes overall. If it runs longer, narrate the already-visible parsed table profiles, retry once, and switch to the cached Aurelia or synthetic dashboard.
+
 ## Platform configuration
 
 ```text

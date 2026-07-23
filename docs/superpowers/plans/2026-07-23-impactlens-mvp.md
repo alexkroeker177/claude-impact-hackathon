@@ -415,7 +415,9 @@ Use `path.basename` only for display labels and a generated UUID plus original e
 
 The wizard contains project name, goal, optional attention, unlimited-count file picker, real processing stages, concise understanding, file/table summary, Five Dimensions coverage, optional framework tags, three/four KPI cards, optional exact join confirmation, and collapsed advanced details. It redirects to `/projects/<id>` after generation.
 
-- [ ] **Step 5: Manually smoke-test and commit**
+- [x] **Step 5: Manually smoke-test and commit**
+
+Windows smoke record: project creation, CSV upload, a two-worksheet XLSX upload, review persistence, KPI removal/generation, cached reload, tests, lint, and the production build all passed. The XLSX rehearsal produced four deterministic KPIs and a grouped chart from six previously unseen rows.
 
 Run `bun run dev`; create projects from one CSV, one XLSX, and several small files. Confirm no count cap exists, combined safeguards work, one KPI can be removed, and refresh preserves the review state.
 
@@ -529,6 +531,8 @@ bun run seed:aurelia -- "D:\Claude_Impact_Hackathon\Aurelia_Propel_IMM Dataset"
 Expected: five tests pass, lint/build succeed, both seeded projects open, and no raw or local state enters git.
 
 - [ ] **Step 5: Rehearse both live paths**
+
+Current rehearsal record: both cached dashboard routes and the complete unseen-XLSX API path pass on the Windows hackathon machine. The 19-file Aurelia dashboard and synthetic fallback are ready; the live XLSX interpretation took about 92 seconds and generation took under two seconds. Screenshot-level browser rehearsal and macOS smoke testing remain outstanding; macOS must continue to be described as designed-for portability, not tested.
 
 Rehearsal A: open Aurelia → KPIs/chart → Five Dimensions → evidence → warning.
 
