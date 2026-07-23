@@ -1,0 +1,58 @@
+[
+ {
+  "id": 3,
+  "code": "de",
+  "bcp47_tag": "de-DE",
+  "native_name": "Deutsch",
+  "dir": "LEFT_TO_RIGHT"
+ },
+ {
+  "id": 1,
+  "code": "en",
+  "bcp47_tag": "en-GB",
+  "native_name": "English",
+  "dir": "LEFT_TO_RIGHT"
+ },
+ {
+  "id": 4,
+  "code": "fr",
+  "bcp47_tag": "fr-FR",
+  "native_name": "Français",
+  "dir": "LEFT_TO_RIGHT"
+ },
+ {
+  "id": 5,
+  "code": "ar",
+  "bcp47_tag": "ar-EG",
+  "native_name": "العربية",
+  "dir": "RIGHT_TO_LEFT"
+ },
+ {
+  "id": 17,
+  "code": "fa",
+  "bcp47_tag": "fa",
+  "native_name": "فارسی",
+  "dir": "RIGHT_TO_LEFT"
+ },
+ {
+  "id": 47,
+  "code": "ru",
+  "bcp47_tag": "ru",
+  "native_name": "Русский",
+  "dir": "LEFT_TO_RIGHT"
+ },
+ {
+  "id": 56,
+  "code": "uk",
+  "bcp47_tag": "uk",
+  "native_name": "Українська",
+  "dir": "LEFT_TO_RIGHT"
+ },
+ {
+  "id": 72,
+  "code": "am",
+  "bcp47_tag": "am",
+  "native_name": "ኣማርኛ",
+  "dir": "LEFT_TO_RIGHT"
+ }
+]
