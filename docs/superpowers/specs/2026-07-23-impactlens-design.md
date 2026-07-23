@@ -1,8 +1,8 @@
 # ImpactLens — Hackathon MVP Design
 
-**Date:** 2026-07-23  
+**Date:** 2026-07-23
 **Status:** Revised after scope review
-**Track:** Yunus Social Innovation — AI-Powered Impact Intelligence  
+**Track:** Yunus Social Innovation — AI-Powered Impact Intelligence
 **Build target:** Working local demo by 20:00
 
 ## 1. Product summary
