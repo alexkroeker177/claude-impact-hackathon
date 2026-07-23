@@ -1,17 +1,16 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { redirect } = vi.hoisted(() => ({ redirect: vi.fn() }));
+
+vi.mock("next/navigation", () => ({ redirect }));
 
 import Home from "./page";
 
 describe("ImpactLens home", () => {
-  it("introduces the product and offers project creation", () => {
-    render(<Home />);
+  beforeEach(() => redirect.mockClear());
 
-    expect(
-      screen.getByRole("heading", { name: /impactlens/i }),
-    ).toBeVisible();
-    expect(
-      screen.getByRole("link", { name: /create project/i }),
-    ).toHaveAttribute("href", "/projects/new");
+  it("opens the persisted project workspace", () => {
+    Home();
+    expect(redirect).toHaveBeenCalledWith("/projects");
   });
 });
