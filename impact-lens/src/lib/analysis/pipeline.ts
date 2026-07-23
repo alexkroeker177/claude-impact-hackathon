@@ -1,11 +1,12 @@
 import { parseTabularFile } from "@/lib/files/parse";
 import { profileTable } from "@/lib/files/profile";
 import type { FileInput, ParsedTable, SourceProfile } from "@/lib/files/types";
-import type { FieldRef, SemanticPlan } from "@/lib/semantic/schema";
+import type { FieldRef, MetricDefinition, SemanticPlan } from "@/lib/semantic/schema";
 import { evaluateMetric } from "@/lib/metrics/evaluate";
+import { toMetricResult, type LlmComputeResult } from "@/lib/analysis/llm-compute";
 import { auditExactJoin } from "@/lib/analysis/joins";
 import { buildWarnings } from "@/lib/analysis/warnings";
-import { selectChart } from "@/lib/analysis/charts";
+import { funnelSummary, selectChart } from "@/lib/analysis/charts";
 import type { AnalysisWarning, DashboardAnalysis } from "@/lib/analysis/types";
 
 const MAX_TOTAL_BYTES = 10 * 1024 * 1024;
@@ -20,6 +21,23 @@ export interface RunAnalysisInput {
     attention: string | null;
     profiles: SourceProfile[];
   }) => Promise<SemanticPlan>;
+  /** LLM metric computation (normalizes messy cells, returns per-row receipts). Falls back to deterministic evaluation per metric. */
+  compute?: (args: {
+    goal: string;
+    metrics: MetricDefinition[];
+    tables: ParsedTable[];
+    funnel: SemanticPlan["orderedFunnel"];
+  }) => Promise<LlmComputeResult>;
+  /** LLM narrative (assessment + insights). Falls back to the deterministic assessment sentence. */
+  narrate?: (args: {
+    projectName: string;
+    goal: string;
+    understanding: string;
+    metrics: DashboardAnalysis["metrics"];
+    chart: DashboardAnalysis["chart"];
+    warnings: AnalysisWarning[];
+    plan: SemanticPlan;
+  }) => Promise<{ assessment: string; insights: Array<{ tone: "good" | "watch" | "problem"; text: string }> }>;
   acceptedMetricIds?: string[] | null;
   confirmedJoinId?: string | null;
   precomputed?: { tables: ParsedTable[]; profiles: SourceProfile[] } | null;
@@ -69,10 +87,33 @@ export async function runAnalysis(input: RunAnalysisInput): Promise<DashboardAna
     }
   }
 
-  const metrics: DashboardAnalysis["metrics"] = [];
+  const acceptedDefinitions = plan.proposedMetrics.filter((m) => acceptedSet.has(m.id));
   const evalWarnings: string[] = [];
-  for (const definition of plan.proposedMetrics) {
-    if (!acceptedSet.has(definition.id)) continue;
+
+  // LLM compute pass (Opus normalizes cells + returns per-row receipts); per-metric deterministic fallback.
+  let llmComputed: LlmComputeResult | null = null;
+  if (input.compute && acceptedDefinitions.length > 0) {
+    try {
+      llmComputed = await input.compute({
+        goal: input.context.goal,
+        metrics: acceptedDefinitions,
+        tables,
+        funnel: plan.orderedFunnel,
+      });
+    } catch (err) {
+      evalWarnings.push(
+        `AI computation was unavailable (${err instanceof Error ? err.message : String(err)}) — figures below use the deterministic fallback.`,
+      );
+    }
+  }
+
+  const metrics: DashboardAnalysis["metrics"] = [];
+  for (const definition of acceptedDefinitions) {
+    const computed = llmComputed?.metrics.find((m) => m.metricId === definition.id);
+    if (computed) {
+      metrics.push({ definition, result: toMetricResult(computed, definition, tables) });
+      continue;
+    }
     try {
       const result = evaluateMetric(definition, tables, confirmedJoin);
       metrics.push({ definition, result });
@@ -83,7 +124,15 @@ export async function runAnalysis(input: RunAnalysisInput): Promise<DashboardAna
     }
   }
 
-  const chart = selectChart(plan, tables, metrics);
+  let chart = selectChart(plan, tables, metrics);
+  if (chart?.type === "funnel" && llmComputed?.funnelStages && llmComputed.funnelStages.length >= 2) {
+    const points = llmComputed.funnelStages.map((s) => ({ label: s.label, value: s.value }));
+    chart = {
+      ...chart,
+      points,
+      summary: `${funnelSummary(points)} Stage totals were normalized cell-by-cell by AI review.`,
+    };
+  }
   const warnings: AnalysisWarning[] = buildWarnings({ profiles, tables, plan, results: metrics, joinAudit });
   evalWarnings.forEach((message, i) =>
     warnings.push({ id: `we${i + 1}`, scope: "project", severity: "warning", message, sourceId: null, fieldRefs: [] }),
@@ -97,16 +146,44 @@ export async function runAnalysis(input: RunAnalysisInput): Promise<DashboardAna
     meanCoverage >= 0.95
       ? "using nearly all of the data"
       : `using ${Math.round(meanCoverage * 100)}% of the data (the rest was empty or unreadable)`;
-  const assessment = `We computed ${metrics.length} key figure${metrics.length === 1 ? "" : "s"} from your files, ${coverageSentence}.${
+  let assessment = `We computed ${metrics.length} key figure${metrics.length === 1 ? "" : "s"} from your files, ${coverageSentence}.${
     flagged === 0
       ? " No data-quality issues were found."
       : ` ${flagged} thing${flagged === 1 ? "" : "s"} need${flagged === 1 ? "s" : ""} a closer look — see “Needs review”.`
   }`;
 
+  // LLM narrative pass — Claude-written assessment + insights, deterministic sentence as fallback.
+  let insights: DashboardAnalysis["insights"] = null;
+  if (input.narrate && metrics.length > 0) {
+    try {
+      const narrative = await input.narrate({
+        projectName: input.context.projectName,
+        goal: input.context.goal,
+        understanding: plan.understanding,
+        metrics,
+        chart,
+        warnings,
+        plan,
+      });
+      assessment = narrative.assessment;
+      insights = narrative.insights;
+    } catch (err) {
+      warnings.push({
+        id: "wn1",
+        scope: "project",
+        severity: "info",
+        message: `AI narrative was unavailable (${err instanceof Error ? err.message : String(err)}) — showing the standard summary instead.`,
+        sourceId: null,
+        fieldRefs: [],
+      });
+    }
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     understanding: plan.understanding,
     assessment,
+    insights,
     profiles,
     plan,
     metrics,

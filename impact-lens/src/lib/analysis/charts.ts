@@ -29,6 +29,33 @@ export function selectChart(
   tables: ParsedTable[],
   results: Array<{ definition: MetricDefinition; result: MetricResult }>,
 ): ChartSpec | null {
+  return selectChartInner(plan, tables, results);
+}
+
+/** Short stage name for prose: text before any dash/colon/paren qualifier. */
+function shortLabel(label: string): string {
+  return label.split(/\s*[—–:(]/)[0].trim() || label;
+}
+
+/** Direction-aware funnel sentence — never claims "narrowing" when a later stage grows. */
+export function funnelSummary(points: Array<{ label: string; value: number | null }>): string {
+  const usable = points.filter((p): p is { label: string; value: number } => p.value !== null);
+  if (usable.length < 2) return "Funnel stages compared.";
+  const first = usable[0];
+  const last = usable[usable.length - 1];
+  const fmt = (v: number) => Math.round(v).toLocaleString("en-US");
+  const broken = usable.some((p, i) => i > 0 && p.value > usable[i - 1].value);
+  if (broken) {
+    return `${shortLabel(first.label)} starts at ${fmt(first.value)} people, but later stages grow instead of shrinking (${shortLabel(last.label)}: ${fmt(last.value)}) — a sign of reporting errors, flagged under “Needs review”.`;
+  }
+  return `Of ${fmt(first.value)} people at ${shortLabel(first.label)}, ${fmt(last.value)} reach ${shortLabel(last.label)}.`;
+}
+
+function selectChartInner(
+  plan: SemanticPlan,
+  tables: ParsedTable[],
+  results: Array<{ definition: MetricDefinition; result: MetricResult }>,
+): ChartSpec | null {
   if (plan.orderedFunnel && plan.orderedFunnel.stages.length >= 2) {
     const table = tables.find((t) => t.sourceId === plan.orderedFunnel!.sourceId);
     if (table) {
@@ -36,14 +63,12 @@ export function selectChart(
         .map((stage) => ({ label: stage.label, value: sumParseableField(table, stage.fieldId) }))
         .filter((p): p is { label: string; value: number } => p.value !== null);
       if (points.length >= 2) {
-        const first = points[0];
-        const last = points[points.length - 1];
         return {
           type: "funnel",
           title: "Impact funnel",
           metricId: results[0]?.definition.id ?? "funnel",
           points,
-          summary: `${first.label} reaches ${Math.round(first.value).toLocaleString("en-US")}, narrowing to ${Math.round(last.value).toLocaleString("en-US")} at ${last.label}.`,
+          summary: funnelSummary(points),
         };
       }
     }

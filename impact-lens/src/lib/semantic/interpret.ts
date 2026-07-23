@@ -1,5 +1,5 @@
 import { runClaudeStructured } from "@/lib/claude/run";
-import type { SourceProfile } from "@/lib/files/types";
+import type { ParsedTable, SourceProfile } from "@/lib/files/types";
 import { semanticPlanSchema, type SemanticPlan } from "@/lib/semantic/schema";
 import { pruneSemanticPlan } from "@/lib/semantic/validate";
 
@@ -8,6 +8,8 @@ export interface InterpretProjectInput {
   goal: string;
   attention: string | null;
   profiles: SourceProfile[];
+  /** Raw parsed rows — when present, actual data (capped) is shown to Claude, not just column statistics. */
+  tables?: ParsedTable[] | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -83,11 +85,16 @@ const formulaJson = {
 const metricDefinitionJson = {
   type: "object",
   additionalProperties: false,
-  required: ["id", "name", "description", "formula", "groupBy", "unit", "confidence", "assumptions", "caveats"],
+  required: ["id", "name", "description", "howCalculated", "formula", "groupBy", "unit", "confidence", "assumptions", "caveats"],
   properties: {
     id: { type: "string", description: "Stable slug id, e.g. 'm1_reach'." },
     name: { type: "string" },
     description: { type: "string" },
+    howCalculated: {
+      type: ["string", "null"],
+      description:
+        "1-2 plain sentences a non-analyst can read: which column(s) are combined and how, naming them in quotes. No formula jargon.",
+    },
     formula: formulaJson,
     groupBy: {
       anyOf: [fieldRefJson, { type: "null" }],
@@ -294,7 +301,14 @@ Hard rules:
 - If a single table contains an ordered same-table funnel (stages like reach -> engage -> outcome), set orderedFunnel with the stage fields in order; otherwise null.
 - If two tables share a plausible join key (e.g. beneficiary id across waves), set candidateJoin; otherwise null.
 - Be explicit about uncertainties: list every material assumption, data-quality concern, and ambiguity in the uncertainties array.
-- Prefer honest, conservative confidence values over optimistic ones.`;
+- Prefer honest, conservative confidence values over optimistic ones.
+
+Working with the data:
+- When rawRows are provided for a source, READ THEM. Base every choice (which column a metric reads, funnel stage order, join keys, dimension answers) on the actual values, not just headers. Surveys often carry near-duplicate columns for the same question ("as of October 2024" vs. current) — pick the one whose raw values are more complete and more recent, and say so in assumptions.
+- Choose KPIs that answer the user's stated goal first; the best 3-4 beat an exhaustive list. Prefer people-counting and outcome metrics over administrative ones.
+- For every metric, write howCalculated: 1-2 plain sentences naming the column(s) in quotes and what is done with them ("Adds up the answers to 'How many people...' across all 9 enterprises"). A programme manager must understand it without seeing the formula.
+- Expect messy cells (currency tokens, "800 agents", "N/A", European number formats). Do not exclude a column just because it is messy — a later computation step normalizes cell-by-cell. Note the messiness in caveats instead.
+- The understanding field should read like a colleague's briefing: what this data is, who filled it in, when, and what it can and cannot tell you.`;
 
 function buildPacket(input: InterpretProjectInput): string {
   return JSON.stringify(
@@ -320,11 +334,31 @@ function buildPacket(input: InterpretProjectInput): string {
           samples: field.samples,
           mixedTypes: field.mixedTypes,
         })),
+        rawRows: rawRowsFor(profile.sourceId, input.tables ?? null),
       })),
     },
     null,
     1,
   );
+}
+
+const MAX_RAW_ROWS = 40;
+const MAX_RAW_CELL_CHARS = 160;
+
+/** Real row data (capped) keyed by fieldId, so Claude reasons over actual values, not just column stats. */
+function rawRowsFor(
+  sourceId: string,
+  tables: ParsedTable[] | null,
+): { totalRows: number; shown: number; rows: Array<{ rowNumber: number; values: Record<string, string> }> } | null {
+  const table = tables?.find((t) => t.sourceId === sourceId);
+  if (!table) return null;
+  const rows = table.rows.slice(0, MAX_RAW_ROWS).map((row) => ({
+    rowNumber: row.rowNumber,
+    values: Object.fromEntries(
+      table.fields.map((f) => [f.id, String(row.values[f.id] ?? "").slice(0, MAX_RAW_CELL_CHARS)]),
+    ),
+  }));
+  return { totalRows: table.rows.length, shown: rows.length, rows };
 }
 
 export async function interpretProject(input: InterpretProjectInput): Promise<SemanticPlan> {

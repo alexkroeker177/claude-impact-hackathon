@@ -50,15 +50,25 @@ export interface AnalysisWarning {
   fieldRefs: FieldRef[];
 }
 
+/** Optional per-enterprise reach-vs-impact comparison (currently mock/demo only). */
+export interface ComparisonChartSpec {
+  title: string;
+  summary: string;
+  points: Array<{ label: string; reach: number | null; impact: number | null }>;
+}
+
 export interface DashboardAnalysis {
   generatedAt: string;
   understanding: string;
-  /** Deterministic overall assessment sentence(s) computed from results. */
+  /** Overall assessment sentence(s) — Claude-written when available, deterministic fallback otherwise. */
   assessment: string;
+  /** Claude-written takeaways; null when the narrate step was unavailable (UI falls back to deterministic insights). */
+  insights?: Array<{ tone: "good" | "watch" | "problem"; text: string }> | null;
   profiles: SourceProfile[];
   plan: SemanticPlan;
   /** Only metrics accepted by the user AND still valid. */
   metrics: Array<{ definition: MetricDefinition; result: MetricResult }>;
   chart: ChartSpec | null;
+  secondaryChart?: ComparisonChartSpec | null;
   warnings: AnalysisWarning[];
 }

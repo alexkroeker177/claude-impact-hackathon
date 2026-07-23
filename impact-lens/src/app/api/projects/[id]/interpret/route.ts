@@ -1,8 +1,13 @@
+import fsp from "node:fs/promises";
+import { isMockMode, loadMockPlan, mockDelay } from "@/lib/mock";
 import { interpretProject } from "@/lib/semantic/interpret";
+import { parseTabularFile } from "@/lib/files/parse";
+import type { ParsedTable } from "@/lib/files/types";
 import {
   failRun,
   getProfiles,
   getProject,
+  getSources,
   savePlanMetrics,
   saveRun,
   setProjectError,
@@ -30,15 +35,39 @@ export async function POST(
     return jsonError(400, "no_sources", "Project has no uploaded sources to interpret.");
   }
 
+  // Re-parse stored uploads so Claude sees actual rows, not just column stats.
+  // Best-effort: interpretation still works from profiles alone if a file is unreadable.
+  let tables: ParsedTable[] | null = null;
+  try {
+    const parsed: ParsedTable[] = [];
+    const seenPaths = new Set<string>();
+    for (const source of getSources(id)) {
+      if (seenPaths.has(source.storedPath)) continue;
+      seenPaths.add(source.storedPath);
+      const bytes = await fsp.readFile(source.storedPath);
+      parsed.push(...parseTabularFile({ name: source.fileName, bytes: new Uint8Array(bytes) }));
+    }
+    tables = parsed;
+  } catch {
+    tables = null;
+  }
+
   setProjectStatus(id, "interpreting");
   const run = saveRun(id);
   try {
-    const plan = await interpretProject({
-      projectName: project.name,
-      goal: project.goal,
-      attention: project.attention,
-      profiles,
-    });
+    let plan;
+    if (isMockMode()) {
+      await mockDelay(1800);
+      plan = loadMockPlan();
+    } else {
+      plan = await interpretProject({
+        projectName: project.name,
+        goal: project.goal,
+        attention: project.attention,
+        profiles,
+        tables,
+      });
+    }
     updateRunPlan(run.id, plan);
     savePlanMetrics(id, run.id, plan);
     setProjectStatus(id, "interpreted");

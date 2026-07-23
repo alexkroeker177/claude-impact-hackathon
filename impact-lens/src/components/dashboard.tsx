@@ -11,15 +11,24 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, CheckCircle2, Info, OctagonAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, Info, OctagonAlert } from "lucide-react";
 
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EvidenceDrawer } from "@/components/evidence-drawer";
 import { buildInsights, type Insight } from "@/lib/analysis/explain";
+import { buildReportHtml, reportFileName } from "@/lib/analysis/report";
 import type { CoverageStatus, MetricDefinition } from "@/lib/semantic/schema";
 import type { AnalysisWarning, DashboardAnalysis, MetricResult } from "@/lib/analysis/types";
 
@@ -68,10 +77,28 @@ const SEVERITY_COLOR = {
   critical: "text-red-600",
 };
 
-const INSIGHT_ICON: Record<Insight["tone"], { icon: typeof Info; color: string }> = {
-  good: { icon: CheckCircle2, color: "text-emerald-600" },
-  watch: { icon: AlertTriangle, color: "text-amber-600" },
-  problem: { icon: OctagonAlert, color: "text-red-600" },
+const INSIGHT_STYLE: Record<
+  Insight["tone"],
+  { icon: typeof Info; label: string; card: string; accent: string }
+> = {
+  good: {
+    icon: CheckCircle2,
+    label: "Good sign",
+    card: "border-emerald-200 bg-emerald-50/70",
+    accent: "text-emerald-700",
+  },
+  watch: {
+    icon: AlertTriangle,
+    label: "Worth checking",
+    card: "border-amber-200 bg-amber-50/70",
+    accent: "text-amber-700",
+  },
+  problem: {
+    icon: OctagonAlert,
+    label: "Fix first",
+    card: "border-red-200 bg-red-50/70",
+    accent: "text-red-700",
+  },
 };
 
 function WarningRow({ warning }: { warning: AnalysisWarning }) {
@@ -91,9 +118,19 @@ export function Dashboard({ data, project }: DashboardProps) {
   const projectWarnings = data.warnings.filter((w) => w.scope === "project");
   const flaggedCount = data.warnings.filter((w) => w.severity !== "info").length;
 
-  const insights = buildInsights(data);
+  const insights = data.insights ?? buildInsights(data);
   const notFoundDimensions = DIMENSIONS.filter((d) => data.plan.fiveDimensions[d.key].status === "not_found");
   const lowCoverageMetrics = data.metrics.filter((m) => m.result.coverage < 0.6);
+
+  function handleExport() {
+    const blob = new Blob([buildReportHtml(data, project)], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = reportFileName(project.name, data.generatedAt);
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -116,27 +153,37 @@ export function Dashboard({ data, project }: DashboardProps) {
             Generated {new Date(data.generatedAt).toLocaleString()}
           </p>
         </div>
+        <Button variant="outline" onClick={handleExport}>
+          <Download className="size-4" />
+          Export report
+        </Button>
       </div>
 
       <Card className="border-l-4 border-l-emerald-600">
         <CardHeader>
           <CardTitle className="text-base">What this data says</CardTitle>
-          <CardDescription className="text-sm leading-6 text-slate-700">{data.assessment}</CardDescription>
+          <CardDescription className="text-[15px] leading-7 text-slate-700">
+            {data.assessment}
+          </CardDescription>
         </CardHeader>
-        {insights.length > 0 && (
-          <CardContent className="flex flex-col gap-2.5">
-            {insights.map((insight, i) => {
-              const { icon: Icon, color } = INSIGHT_ICON[insight.tone];
-              return (
-                <div key={i} className="flex items-start gap-2.5">
-                  <Icon className={`mt-0.5 size-4 shrink-0 ${color}`} />
-                  <p className="text-sm leading-6 text-slate-800">{insight.text}</p>
-                </div>
-              );
-            })}
-          </CardContent>
-        )}
       </Card>
+
+      {insights.length > 0 && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {insights.map((insight, i) => {
+            const { icon: Icon, label, card, accent } = INSIGHT_STYLE[insight.tone];
+            return (
+              <div key={i} className={`rounded-xl border p-4 ${card}`}>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <Icon className={`size-4 ${accent}`} />
+                  <span className={`text-xs font-semibold uppercase tracking-wide ${accent}`}>{label}</span>
+                </div>
+                <p className="text-sm leading-6 text-slate-800">{insight.text}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <Tabs defaultValue="overall">
         <TabsList>
@@ -211,7 +258,14 @@ export function Dashboard({ data, project }: DashboardProps) {
                             axisLine={false}
                             tickFormatter={(v: number) => compactFormat.format(v)}
                           />
-                          <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={100} />
+                          <YAxis
+                            type="category"
+                            dataKey="label"
+                            tickLine={false}
+                            axisLine={false}
+                            width={110}
+                            tickFormatter={(v: string) => String(v).split(/\s*[—–:(]/)[0].trim()}
+                          />
                         </>
                       ) : (
                         <>
@@ -243,6 +297,39 @@ export function Dashboard({ data, project }: DashboardProps) {
             </Card>
           )}
 
+          {data.secondaryChart && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{data.secondaryChart.title}</CardTitle>
+                <CardDescription>{data.secondaryChart.summary}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{
+                    reach: { label: "People informed (reach)", color: "#a7f3d0" },
+                    impact: { label: "Lasting impact", color: "#047857" },
+                  }}
+                  className="aspect-auto h-96 w-full"
+                >
+                  <BarChart data={data.secondaryChart.points} layout="vertical" margin={{ right: 24 }}>
+                    <CartesianGrid vertical horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v: number) => compactFormat.format(v)}
+                    />
+                    <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={140} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Bar dataKey="reach" fill="var(--color-reach)" radius={3} />
+                    <Bar dataKey="impact" fill="var(--color-impact)" radius={3} />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
+
           <section>
             <h3 className="mb-1 text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
               Five Dimensions of Impact
@@ -250,26 +337,28 @@ export function Dashboard({ data, project }: DashboardProps) {
             <p className="mb-3 text-sm text-slate-500">
               The five questions every impact report should answer — answered from this data where possible.
             </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Accordion className="rounded-xl border bg-white px-4">
               {DIMENSIONS.map(({ key, question }) => {
                 const entry = data.plan.fiveDimensions[key];
                 return (
-                  <Card key={key} size="sm" className="h-full">
-                    <CardContent className="flex h-full flex-col items-start gap-2">
-                      <div className="flex w-full items-start justify-between gap-2">
+                  <AccordionItem key={key} value={key}>
+                    <AccordionTrigger className="items-center py-3.5 hover:no-underline">
+                      <span className="flex w-full items-center justify-between gap-2 pr-2">
                         <span className="text-sm font-medium text-slate-900">{question}</span>
                         <Badge className={`shrink-0 ${STATUS_BADGE[entry.status]}`}>
                           {STATUS_LABEL[entry.status]}
                         </Badge>
-                      </div>
+                      </span>
+                    </AccordionTrigger>
+                    <AccordionContent>
                       <p className="text-sm leading-6 text-slate-600">
                         {entry.rationale || "Nothing in the data answers this yet."}
                       </p>
-                    </CardContent>
-                  </Card>
+                    </AccordionContent>
+                  </AccordionItem>
                 );
               })}
-            </div>
+            </Accordion>
           </section>
 
           {data.plan.frameworkTags.length > 0 && (

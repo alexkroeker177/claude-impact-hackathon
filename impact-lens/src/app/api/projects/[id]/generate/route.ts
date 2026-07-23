@@ -1,6 +1,9 @@
 import fsp from "node:fs/promises";
 import { z } from "zod";
 import { runAnalysis } from "@/lib/analysis/pipeline";
+import { computeMetricsWithClaude } from "@/lib/analysis/llm-compute";
+import { narrateDashboard } from "@/lib/analysis/narrate";
+import { isMockMode, loadMockDashboard, mockDelay } from "@/lib/mock";
 import type { FileInput } from "@/lib/files/types";
 import {
   getPlanAndProfiles,
@@ -64,14 +67,22 @@ export async function POST(
 
   setProjectStatus(id, "generating");
   try {
-    const dashboard = await runAnalysis({
-      context: { projectName: project.name, goal: project.goal, attention: project.attention },
-      files,
-      // Stored plan only — never a second Claude call.
-      interpret: async () => plan,
-      acceptedMetricIds: body.acceptedMetricIds,
-      confirmedJoinId: body.confirmedJoinId ?? null,
-    });
+    let dashboard;
+    if (isMockMode()) {
+      await mockDelay(2200);
+      dashboard = loadMockDashboard();
+    } else {
+      dashboard = await runAnalysis({
+        context: { projectName: project.name, goal: project.goal, attention: project.attention },
+        files,
+        // Stored plan for the semantic step; compute + narrate are their own Claude calls.
+        interpret: async () => plan,
+        compute: computeMetricsWithClaude,
+        narrate: narrateDashboard,
+        acceptedMetricIds: body.acceptedMetricIds,
+        confirmedJoinId: body.confirmedJoinId ?? null,
+      });
+    }
     saveDashboard(id, runId, dashboard);
     updateMetricsAccepted(runId, body.acceptedMetricIds);
     saveMetricResults(
