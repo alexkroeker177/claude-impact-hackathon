@@ -1,13 +1,14 @@
 # Workstream Plans
 
-> Split from [PLAN.md](../PLAN.md) (the master overview — read that first). One file per workstream so we can divide work and plan independently without stepping on each other.
+> **⚠️ Plan of record changed 2026-07-23 late afternoon:** the app is now **ImpactLens** — see [docs/superpowers/specs/2026-07-23-impactlens-design.md](../docs/superpowers/specs/2026-07-23-impactlens-design.md) + [docs/superpowers/plans/2026-07-23-impactlens-mvp.md](../docs/superpowers/plans/2026-07-23-impactlens-mvp.md). Plans 02/03/04 below are **superseded** by it. Plan 01 is **built** (see [pipeline/README.md](../pipeline/README.md)). How the two fit together: [05-impactlens-reconciliation.md](05-impactlens-reconciliation.md).
 
-| Plan | Workstream | Owner |
+| Plan | Workstream | Status |
 | --- | --- | --- |
-| [01-standardization-pipeline.md](01-standardization-pipeline.md) | AI-assisted data standardization pipeline (profiling → mappings → entity resolution → normalize → grade → emit) | **Alex** |
-| [02-kpi-engine.md](02-kpi-engine.md) | Declarative KPI engine + KPI recommendation + custom KPIs | TBD |
-| [03-dashboard.md](03-dashboard.md) | `kpimpact/` Next.js dashboard (portfolio, org drill-down, provenance panel) | TBD |
-| [04-report-and-pitch.md](04-report-and-pitch.md) | Report generator + pitch | TBD |
+| [01-standardization-pipeline.md](01-standardization-pipeline.md) | Harmonization pipeline (mappings → entity resolution → normalize → grade → emit) | ✅ **Built** (v2, owner Alex) |
+| [05-impactlens-reconciliation.md](05-impactlens-reconciliation.md) | ImpactLens × pipeline reconciliation — terminology, integration points, flags | **Read this** |
+| [02-kpi-engine.md](02-kpi-engine.md) | KPI engine + recommendation | ⚠️ Superseded by ImpactLens (constrained formula language + semantic plan) |
+| [03-dashboard.md](03-dashboard.md) | `kpimpact/` dashboard | ⚠️ Superseded by ImpactLens (`impact-lens/` app) |
+| [04-report-and-pitch.md](04-report-and-pitch.md) | Report generator + pitch | ⚠️ Superseded by ImpactLens §16 demo script (report gen was stretch anyway) |
 
 ## The shared contract (agree once, then build in parallel)
 
