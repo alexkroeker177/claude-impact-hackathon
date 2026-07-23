@@ -1,9 +1,11 @@
 /**
  * Seeds a demo project without going through the upload wizard.
  *
- *   bun scripts/seed-project.ts --fallback              synthetic data, precomputed plan, zero Claude calls
- *   bun scripts/seed-project.ts --harmonized [<dir>]     imports pipeline/data/harmonized.json (default: ../data)
- *   bun scripts/seed-project.ts <directory>              generic seed: profiles real files, calls Claude once
+ *   bun scripts/seed-project.ts --fallback                      synthetic data, precomputed plan, zero Claude calls
+ *   bun scripts/seed-project.ts --harmonized [<dir>]             one project PER ORGANISATION (default) from pipeline/data/harmonized.json
+ *   bun scripts/seed-project.ts --harmonized --org=<org_id>      just one organisation, by org_id
+ *   bun scripts/seed-project.ts --harmonized --portfolio         the old single combined-portfolio project
+ *   bun scripts/seed-project.ts <directory>                      generic seed: profiles real files, calls Claude once
  *
  * The generic path contains no dataset-specific logic — it is exercised against
  * the Aurelia Propel export directory for the demo, but works on any folder of
@@ -28,7 +30,13 @@ import {
   setProjectStatus,
   updateRunPlan,
 } from "../src/lib/db/projects";
-import { mapHarmonized, type HarmonizedAnomaly, type HarmonizedRecord } from "./lib/harmonized";
+import {
+  mapHarmonized,
+  mapHarmonizedByOrg,
+  type HarmonizedAnomaly,
+  type HarmonizedRecord,
+  type OrgRegistryEntry,
+} from "./lib/harmonized";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 
@@ -79,11 +87,15 @@ async function seedFallback(): Promise<void> {
   log(`Fallback project ready: ${project.id} (${project.name})`);
 }
 
-async function seedHarmonized(dirArg?: string): Promise<void> {
-  const dataDir = dirArg
-    ? path.resolve(dirArg)
-    : path.join(ROOT, "..", "..", "data");
+function loadHarmonizedInputs(dirArg?: string): {
+  records: HarmonizedRecord[];
+  anomalies: HarmonizedAnomaly[];
+  orgs: OrgRegistryEntry[];
+  harmonizedPath: string;
+} {
+  const dataDir = dirArg ? path.resolve(dirArg) : path.join(ROOT, "..", "..", "data");
   const anomaliesPath = path.join(ROOT, "..", "..", "build", "anomalies.json");
+  const orgsPath = path.join(dataDir, "orgs.json");
   const harmonizedPath = path.join(dataDir, "harmonized.json");
 
   if (!fs.existsSync(harmonizedPath)) {
@@ -96,28 +108,76 @@ async function seedHarmonized(dirArg?: string): Promise<void> {
   const anomalies = fs.existsSync(anomaliesPath)
     ? (JSON.parse(fs.readFileSync(anomaliesPath, "utf-8")) as HarmonizedAnomaly[])
     : [];
+  const orgs = fs.existsSync(orgsPath)
+    ? ((JSON.parse(fs.readFileSync(orgsPath, "utf-8")) as { orgs: OrgRegistryEntry[] }).orgs ?? [])
+    : [];
 
+  return { records, anomalies, orgs, harmonizedPath };
+}
+
+async function persistDashboard(input: {
+  name: string;
+  goal: string;
+  attention: string | null;
+  profiles: import("../src/lib/files/types").SourceProfile[];
+  plan: import("../src/lib/semantic/schema").SemanticPlan;
+  dashboard: import("../src/lib/analysis/types").DashboardAnalysis;
+  storedPath: string;
+}): Promise<string> {
+  const project = createProject({ name: input.name, goal: input.goal, attention: input.attention, synthetic: false });
+  for (const profile of input.profiles) {
+    addSource({ projectId: project.id, fileName: profile.fileName, storedPath: input.storedPath, profile });
+  }
+  const run = saveRun(project.id);
+  updateRunPlan(run.id, input.plan);
+  savePlanMetrics(project.id, run.id, input.plan);
+  saveMetricResults(run.id, input.dashboard.metrics.map((m) => m.result));
+  saveDashboard(project.id, run.id, input.dashboard);
+  setProjectStatus(project.id, "ready");
+  return project.id;
+}
+
+/** Default: one independent ImpactLens project per organisation. */
+async function seedHarmonizedByOrg(dirArg: string | undefined, onlyOrgId: string | undefined): Promise<void> {
+  const { records, anomalies, orgs, harmonizedPath } = loadHarmonizedInputs(dirArg);
+  const projects = mapHarmonizedByOrg(records, anomalies, orgs);
+  const selected = onlyOrgId ? projects.filter((p) => p.orgId === onlyOrgId) : projects;
+  if (selected.length === 0) {
+    throw new Error(onlyOrgId ? `No records found for org_id "${onlyOrgId}"` : "No organisations found in harmonized.json");
+  }
+
+  for (const p of selected) {
+    const cohortLabel = p.cohorts.length ? ` (${p.cohorts.join(", ")})` : "";
+    const id = await persistDashboard({
+      name: `${p.projectName}${cohortLabel}`,
+      goal: `Track ${p.projectName}'s reach, depth and evidence quality across its own waves.`,
+      attention: "Funnel monotonicity and evidence-grade coverage for this organisation specifically.",
+      profiles: p.profiles,
+      plan: p.plan,
+      dashboard: p.dashboard,
+      storedPath: harmonizedPath,
+    });
+    log(`Org project ready: ${id} (${p.projectName}, ${p.dashboard.metrics.length} KPIs)`);
+  }
+  log(`Seeded ${selected.length} organisation project${selected.length === 1 ? "" : "s"} from ${records.length} records.`);
+}
+
+/** Legacy: one project combining every organisation into a single portfolio dashboard. */
+async function seedHarmonizedPortfolio(dirArg?: string): Promise<void> {
+  const { records, anomalies, harmonizedPath } = loadHarmonizedInputs(dirArg);
   const { profiles, plan, dashboard } = mapHarmonized(records, anomalies, {
     projectName: "Aurelia Propel — full portfolio (deep harmonization)",
   });
-
-  const project = createProject({
+  const id = await persistDashboard({
     name: "Aurelia Propel — full portfolio (deep harmonization)",
     goal: "Track reach, depth and evidence quality across the whole 3.5-year portfolio.",
     attention: "Funnel monotonicity and evidence-grade coverage across cohorts and waves.",
-    synthetic: false,
+    profiles,
+    plan,
+    dashboard,
+    storedPath: harmonizedPath,
   });
-  for (const profile of profiles) {
-    addSource({ projectId: project.id, fileName: profile.fileName, storedPath: harmonizedPath, profile });
-  }
-  const run = saveRun(project.id);
-  updateRunPlan(run.id, plan);
-  savePlanMetrics(project.id, run.id, plan);
-  saveMetricResults(run.id, dashboard.metrics.map((m) => m.result));
-  saveDashboard(project.id, run.id, dashboard);
-  setProjectStatus(project.id, "ready");
-
-  log(`Harmonized portfolio project ready: ${project.id} (${records.length} records, ${profiles.length} sources)`);
+  log(`Harmonized portfolio project ready: ${id} (${records.length} records, ${profiles.length} sources)`);
 }
 
 const SUPPORTED_EXT = new Set([".csv", ".xlsx"]);
@@ -181,13 +241,18 @@ async function main(): Promise<void> {
   }
   if (args.includes("--harmonized")) {
     const dirArg = args.find((a) => !a.startsWith("--"));
-    await seedHarmonized(dirArg);
+    const orgArg = args.find((a) => a.startsWith("--org="))?.slice("--org=".length);
+    if (args.includes("--portfolio")) {
+      await seedHarmonizedPortfolio(dirArg);
+    } else {
+      await seedHarmonizedByOrg(dirArg, orgArg);
+    }
     return;
   }
   const dir = args.find((a) => !a.startsWith("--"));
   if (!dir) {
     throw new Error(
-      "Usage: bun scripts/seed-project.ts --fallback | --harmonized [dir] | <directory-of-csv-xlsx>",
+      "Usage: bun scripts/seed-project.ts --fallback | --harmonized [dir] [--org=<id>] [--portfolio] | <directory-of-csv-xlsx>",
     );
   }
   await seedDirectory(dir);

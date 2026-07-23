@@ -50,6 +50,16 @@ export interface HarmonizedAnomaly {
   source_file: string;
 }
 
+export interface OrgRegistryEntry {
+  org_id: string;
+  canonical_name: string;
+  aliases: string[];
+  people: string[];
+  email_domains: string[];
+  cohorts: string[];
+  country: string | null;
+}
+
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 const TYPE_MAP: Record<HarmonizedRecord["type"], PhysicalType> = {
@@ -168,15 +178,18 @@ function exampleRows(recs: HarmonizedRecord[]): Array<{ sourceId: string; rowNum
 export function mapHarmonized(
   records: HarmonizedRecord[],
   anomalies: HarmonizedAnomaly[],
-  opts: { projectName: string; funnelPrefix?: string } = { projectName: "Harmonized portfolio" },
+  opts: { projectName: string; funnelPrefix?: string; scope?: "portfolio" | "org" } = { projectName: "Harmonized portfolio" },
 ): { profiles: SourceProfile[]; plan: SemanticPlan; dashboard: DashboardAnalysis } {
   const prefix = opts.funnelPrefix ?? "funnel.";
+  const scope = opts.scope ?? "portfolio";
   const profiles = buildProfiles(records);
   const firstSource = profiles[0]?.sourceId ?? "unknown";
   const orgIds = new Set(records.map((r) => r.org_id));
   const dates = [...new Set(records.map((r) => r.date))].sort();
   const waves = new Set(records.map((r) => `${r.cohort}|${r.wave}`)).size;
   const measured = records.filter((r) => r.grade === "A" || r.grade === "B");
+  const scopeWord = scope === "org" ? "this organisation" : "the portfolio";
+  const perWord = scope === "org" ? "per wave" : "per organisation";
 
   // Funnel stages discovered by prefix; ordered by descending latest-wave total (funnel property).
   const stageIds = [...new Set(records.filter((r) => r.metric.startsWith(prefix) && !r.metric.includes(".", prefix.length)).map((r) => r.metric))];
@@ -192,38 +205,40 @@ export function mapHarmonized(
     result: MetricResult,
   ) => metrics.push({ definition, result });
 
-  // KPI 1: organisations tracked
-  pushMetric(
-    {
-      id: "m-orgs",
-      name: "Organisations tracked",
-      description: "Distinct organisations resolved across all files and waves by entity resolution.",
-      formula: { kind: "atomic", expr: { op: "distinct_count", ref: { sourceId: firstSource, fieldId: "org" }, filters: [] } },
-      groupBy: null,
-      unit: "organisations",
-      confidence: 0.95,
-      assumptions: ["Entity resolution merged aliases, people and email domains correctly."],
-      caveats: [],
-    },
-    {
-      metricId: "m-orgs",
-      value: orgIds.size,
-      coverage: 1,
-      recordsUsed: records.length,
-      recordsAvailable: records.length,
-      missingRecords: 0,
-      excludedRecords: 0,
-      series: [],
-      evidence: {
-        sourceIds: profiles.map((p) => p.sourceId),
-        fieldRefs: [{ sourceId: firstSource, fieldId: "org" }],
-        formula: "distinct_count(Organisation (resolved))",
-        filters: [],
-        exampleRows: exampleRows(records),
-        caveats: ["Resolved from person/organisation/email triples across every wave export."],
+  // KPI 1: organisations tracked — only meaningful at portfolio scope
+  if (scope === "portfolio") {
+    pushMetric(
+      {
+        id: "m-orgs",
+        name: "Organisations tracked",
+        description: "Distinct organisations resolved across all files and waves by entity resolution.",
+        formula: { kind: "atomic", expr: { op: "distinct_count", ref: { sourceId: firstSource, fieldId: "org" }, filters: [] } },
+        groupBy: null,
+        unit: "organisations",
+        confidence: 0.95,
+        assumptions: ["Entity resolution merged aliases, people and email domains correctly."],
+        caveats: [],
       },
-    },
-  );
+      {
+        metricId: "m-orgs",
+        value: orgIds.size,
+        coverage: 1,
+        recordsUsed: records.length,
+        recordsAvailable: records.length,
+        missingRecords: 0,
+        excludedRecords: 0,
+        series: [],
+        evidence: {
+          sourceIds: profiles.map((p) => p.sourceId),
+          fieldRefs: [{ sourceId: firstSource, fieldId: "org" }],
+          formula: "distinct_count(Organisation (resolved))",
+          filters: [],
+          exampleRows: exampleRows(records),
+          caveats: ["Resolved from person/organisation/email triples across every wave export."],
+        },
+      },
+    );
+  }
 
   // KPI 2/3: top and bottom funnel stages, when a funnel exists
   if (stages.length >= 2) {
@@ -237,12 +252,12 @@ export function mapHarmonized(
         {
           id,
           name: i === 0 ? `People reached — ${pretty}` : `Deep impact — ${pretty}`,
-          description: `Latest reported ${stage.id} value per organisation, summed across the portfolio.`,
+          description: `Latest reported ${stage.id} value for ${scopeWord}${scope === "portfolio" ? ", summed across the portfolio" : ""}.`,
           formula: { kind: "atomic", expr: { op: "sum", ref, filters: [] } },
           groupBy: null,
           unit: "people",
           confidence: 0.8,
-          assumptions: ["Latest wave per organisation reflects current cumulative reach."],
+          assumptions: [`Latest wave ${perWord} reflects current cumulative reach.`],
           caveats: [gradeCaveat(stage.contributing)],
         },
         {
@@ -257,7 +272,7 @@ export function mapHarmonized(
           evidence: {
             sourceIds: [...new Set(stageRecs.map((r) => slug(r.source_file)))],
             fieldRefs: [ref],
-            formula: `sum(latest ${stage.id} per organisation)`,
+            formula: `sum(latest ${stage.id} ${perWord})`,
             filters: [],
             exampleRows: exampleRows(stage.contributing),
             caveats: [gradeCaveat(stage.contributing)],
@@ -307,7 +322,7 @@ export function mapHarmonized(
     stages.length >= 2
       ? {
           type: "funnel",
-          title: "Impact funnel — latest wave per organisation",
+          title: `Impact funnel — latest wave ${perWord}`,
           metricId: metrics[1]?.definition.id ?? "m-orgs",
           points: stages.map((s) => ({
             label: s.id.slice(prefix.length),
@@ -336,7 +351,10 @@ export function mapHarmonized(
     });
   }
 
-  const understanding = `Externally harmonized longitudinal portfolio: ${records.length.toLocaleString("en-US")} records from ${orgIds.size} organisations across ${waves} cohort-waves (${dates[0]} – ${dates[dates.length - 1]}). Every record carries provenance (file, row, column) and an evidence grade produced by an AI-assisted harmonization pipeline; entity resolution joined organisations across waves.`;
+  const understanding =
+    scope === "org"
+      ? `Externally harmonized longitudinal record for ${opts.projectName}: ${records.length.toLocaleString("en-US")} data points across ${waves} wave(s) (${dates[0]} – ${dates[dates.length - 1]}). Every record carries provenance (file, row, column) and an evidence grade produced by an AI-assisted harmonization pipeline; entity resolution joined this organisation's records across waves.`
+      : `Externally harmonized longitudinal portfolio: ${records.length.toLocaleString("en-US")} records from ${orgIds.size} organisations across ${waves} cohort-waves (${dates[0]} – ${dates[dates.length - 1]}). Every record carries provenance (file, row, column) and an evidence grade produced by an AI-assisted harmonization pipeline; entity resolution joined organisations across waves.`;
 
   const identified = (rationale: string, refs: Array<{ sourceId: string; fieldId: string }> = []) => ({
     status: "identified" as const,
@@ -402,4 +420,54 @@ export function mapHarmonized(
   };
 
   return { profiles, plan, dashboard };
+}
+
+export interface OrgProject {
+  orgId: string;
+  projectName: string;
+  cohorts: string[];
+  profiles: SourceProfile[];
+  plan: SemanticPlan;
+  dashboard: DashboardAnalysis;
+}
+
+/**
+ * Splits a harmonized long table into one independent project per organisation
+ * — each with its own profiles/plan/dashboard, scoped to just that org's rows
+ * (and the anomalies that reference it). No dataset-specific logic: grouping
+ * is by the generic org_id field the published contract already carries.
+ */
+export function mapHarmonizedByOrg(
+  records: HarmonizedRecord[],
+  anomalies: HarmonizedAnomaly[],
+  registry: OrgRegistryEntry[] = [],
+  opts: { funnelPrefix?: string } = {},
+): OrgProject[] {
+  const nameById = new Map(registry.map((o) => [o.org_id, o.canonical_name]));
+  const cohortsById = new Map(registry.map((o) => [o.org_id, o.cohorts]));
+
+  const byOrg = new Map<string, HarmonizedRecord[]>();
+  for (const r of records) {
+    (byOrg.get(r.org_id) ?? byOrg.set(r.org_id, []).get(r.org_id)!).push(r);
+  }
+
+  const projects: OrgProject[] = [];
+  for (const [orgId, orgRecords] of byOrg) {
+    const projectName = nameById.get(orgId) ?? orgId;
+    const orgAnomalies = anomalies.filter((a) => a.org_id === orgId);
+    const { profiles, plan, dashboard } = mapHarmonized(orgRecords, orgAnomalies, {
+      projectName,
+      funnelPrefix: opts.funnelPrefix,
+      scope: "org",
+    });
+    projects.push({
+      orgId,
+      projectName,
+      cohorts: cohortsById.get(orgId) ?? [...new Set(orgRecords.map((r) => r.cohort))],
+      profiles,
+      plan,
+      dashboard,
+    });
+  }
+  return projects.sort((a, b) => a.projectName.localeCompare(b.projectName));
 }

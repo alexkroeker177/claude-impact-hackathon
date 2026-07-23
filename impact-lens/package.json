@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "seed:fallback": "tsx scripts/seed-project.ts --fallback",
     "seed:harmonized": "tsx scripts/seed-project.ts --harmonized",
+    "seed:harmonized-portfolio": "tsx scripts/seed-project.ts --harmonized --portfolio",
     "seed:aurelia": "tsx scripts/seed-project.ts"
   },
   "dependencies": {
