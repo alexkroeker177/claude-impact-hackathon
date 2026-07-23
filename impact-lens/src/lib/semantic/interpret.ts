@@ -20,9 +20,6 @@ type ModelVisibleField = {
   uniqueCount?: number;
   min?: number | string;
   max?: number | string;
-  mixedTypes?: boolean;
-  invalidCount?: number;
-  duplicateCount?: number;
 };
 
 type ModelVisibleProfile = {
@@ -60,6 +57,19 @@ export function compactRedactedProfiles(profiles: SemanticSourceProfile[]): Mode
   return profiles.map((profile) => {
     const record = profile as Record<string, unknown>;
     const warnings = record.parseWarnings ?? record.warnings;
+    const fields = profile.fields.map((field) => {
+      const fieldRecord = field as Record<string, unknown>;
+      const inferredType = asString(fieldRecord.inferredType) ?? asString(fieldRecord.type);
+      return {
+        fieldId: field.fieldId,
+        header: asString(fieldRecord.header),
+        inferredType,
+        nullRate: asFiniteNumber(fieldRecord.nullRate),
+        uniqueCount: asFiniteNumber(fieldRecord.uniqueCount),
+        min: asAggregateRange(fieldRecord.min, inferredType),
+        max: asAggregateRange(fieldRecord.max, inferredType),
+      };
+    });
     return {
       sourceId: profile.sourceId,
       label: asString(record.filename) ?? asString(record.name),
@@ -68,24 +78,25 @@ export function compactRedactedProfiles(profiles: SemanticSourceProfile[]): Mode
       parseWarnings: Array.isArray(warnings)
         ? warnings.filter((warning): warning is string => typeof warning === "string").slice(0, 10)
         : undefined,
-      fields: profile.fields.map((field) => {
-        const fieldRecord = field as Record<string, unknown>;
-        const inferredType = asString(fieldRecord.inferredType) ?? asString(fieldRecord.type);
-        return {
-          fieldId: field.fieldId,
-          header: asString(fieldRecord.header),
-          inferredType,
-          nullRate: asFiniteNumber(fieldRecord.nullRate),
-          uniqueCount: asFiniteNumber(fieldRecord.uniqueCount),
-          min: asAggregateRange(fieldRecord.min, inferredType),
-          max: asAggregateRange(fieldRecord.max, inferredType),
-          mixedTypes: typeof fieldRecord.mixedTypes === "boolean" ? fieldRecord.mixedTypes : undefined,
-          invalidCount: asFiniteNumber(fieldRecord.invalidCount),
-          duplicateCount: asFiniteNumber(fieldRecord.duplicateCount),
-        };
-      }).sort((left, right) => fieldUtility(right) - fieldUtility(left)),
+      fields: selectModelFields(fields).map((field, index) => index < 3 ? field : {
+        fieldId: field.fieldId,
+        header: field.header,
+        inferredType: field.inferredType,
+      }),
     };
   });
+}
+
+function selectModelFields(fields: ModelVisibleField[]): ModelVisibleField[] {
+  const firstContextFields = fields.slice(0, 4);
+  const structuralFields = fields.filter((field) => ["date", "identifier", "category"].includes(field.inferredType ?? ""));
+  const rankedFields = [...fields].sort((left, right) => fieldUtility(right) - fieldUtility(left));
+  const selected = new Map<string, ModelVisibleField>();
+  for (const field of [...firstContextFields, ...structuralFields, ...rankedFields]) {
+    if (!selected.has(field.fieldId)) selected.set(field.fieldId, field);
+    if (selected.size === 20) break;
+  }
+  return [...selected.values()];
 }
 
 function fieldUtility(field: ModelVisibleField): number {
@@ -94,7 +105,7 @@ function fieldUtility(field: ModelVisibleField): number {
     : ["date", "category", "identifier", "currency"].includes(field.inferredType ?? "")
       ? 2
       : 1;
-  return typeWeight + (1 - (field.nullRate ?? 1)) - (field.mixedTypes ? 2 : 0) - ((field.invalidCount ?? 0) > 0 ? 1 : 0);
+  return typeWeight + (1 - (field.nullRate ?? 1));
 }
 
 const semanticPrompt = [
@@ -129,6 +140,43 @@ function filterDisallowedFrameworkTags(
   return { ...plan, frameworkTags };
 }
 
+function sanitizeOptionalReferences(plan: SemanticPlan, profiles: SemanticSourceProfile[]): SemanticPlan {
+  const available = (reference: { sourceId: string; fieldId: string }) => profiles.some((profile) =>
+    profile.sourceId === reference.sourceId && profile.fields.some((field) => field.fieldId === reference.fieldId));
+  const sanitizeCoverage = <T extends { status: "identified" | "partial" | "not_found"; fields: Array<{ sourceId: string; fieldId: string }>; rationale: string }>(coverage: T): T => {
+    const fields = coverage.fields.filter(available);
+    return {
+      ...coverage,
+      fields,
+      status: fields.length ? coverage.status : "not_found",
+      rationale: fields.length === coverage.fields.length ? coverage.rationale : `${coverage.rationale} Unavailable model references were omitted.`,
+    };
+  };
+  const candidateJoin = plan.candidateJoin && available(plan.candidateJoin.left) && available(plan.candidateJoin.right)
+    ? plan.candidateJoin
+    : undefined;
+  return {
+    ...plan,
+    tableInterpretations: plan.tableInterpretations
+      .filter((table) => profiles.some((profile) => profile.sourceId === table.sourceId))
+      .map((table) => ({ ...table, fieldRoles: table.fieldRoles.filter((role) => available(role.field)) })),
+    ...(candidateJoin ? { candidateJoin } : { candidateJoin: undefined }),
+    theoryOfChangeCoverage: {
+      activity: sanitizeCoverage(plan.theoryOfChangeCoverage.activity),
+      output: sanitizeCoverage(plan.theoryOfChangeCoverage.output),
+      outcome: sanitizeCoverage(plan.theoryOfChangeCoverage.outcome),
+      impact: sanitizeCoverage(plan.theoryOfChangeCoverage.impact),
+    },
+    fiveDimensionsCoverage: {
+      what: sanitizeCoverage(plan.fiveDimensionsCoverage.what),
+      who: sanitizeCoverage(plan.fiveDimensionsCoverage.who),
+      howMuch: sanitizeCoverage(plan.fiveDimensionsCoverage.howMuch),
+      contribution: sanitizeCoverage(plan.fiveDimensionsCoverage.contribution),
+      risk: sanitizeCoverage(plan.fiveDimensionsCoverage.risk),
+    },
+  };
+}
+
 /** Runs one bounded Claude Code semantic pass and returns a policy-validated plan. */
 export async function interpretProject(input: InterpretProjectInput): Promise<SemanticPlan> {
   const userContext: SemanticUserContext = {
@@ -151,6 +199,9 @@ export async function interpretProject(input: InterpretProjectInput): Promise<Se
 
   // Invalid proposed metrics and optional framework tags do not invalidate an
   // otherwise usable interpretation. Structural plan errors still fail below.
-  const filtered = filterDisallowedFrameworkTags(filterInvalidMetrics(plan, input.profiles), userContext);
+  const filtered = sanitizeOptionalReferences(
+    filterDisallowedFrameworkTags(filterInvalidMetrics(plan, input.profiles), userContext),
+    input.profiles,
+  );
   return validateSemanticPlan(filtered, input.profiles, userContext);
 }

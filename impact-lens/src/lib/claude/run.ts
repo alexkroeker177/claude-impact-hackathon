@@ -7,6 +7,8 @@ import * as z from "zod";
 
 const DEFAULT_BUDGET_USD = 1;
 const MAX_BUDGET_USD = 5;
+const DEFAULT_MAX_TURNS = 5;
+const MAX_MAX_TURNS = 8;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 180_000;
 const MIN_TIMEOUT_MS = 1_000;
@@ -75,6 +77,14 @@ function configuredTimeout(): number {
     MAX_TIMEOUT_MS,
   );
   return Math.max(MIN_TIMEOUT_MS, timeout);
+}
+
+function configuredMaxTurns(): string {
+  return Math.floor(parseConfiguredPositiveNumber(
+    process.env.CLAUDE_MAX_TURNS,
+    DEFAULT_MAX_TURNS,
+    MAX_MAX_TURNS,
+  )).toString();
 }
 
 async function isExecutable(candidate: string): Promise<boolean> {
@@ -356,7 +366,7 @@ export async function runClaudeStructured<T>(input: RunClaudeStructuredInput<T>)
     "--json-schema",
     JSON.stringify(jsonSchema),
     "--max-turns",
-    "3",
+    configuredMaxTurns(),
     "--max-budget-usd",
     configuredBudget(),
     "--tools",

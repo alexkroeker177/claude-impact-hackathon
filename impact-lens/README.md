@@ -28,6 +28,7 @@ Set `CLAUDE_PATH` only when `claude` is not available on `PATH`. Authentication 
 CLAUDE_PATH=
 CLAUDE_MODEL=
 CLAUDE_MAX_BUDGET_USD=1.00
+CLAUDE_MAX_TURNS=5
 CLAUDE_TIMEOUT_MS=120000
 ```
 

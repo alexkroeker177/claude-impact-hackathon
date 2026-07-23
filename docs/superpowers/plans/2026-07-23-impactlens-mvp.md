@@ -16,7 +16,7 @@
 - Raw uploads remain unchanged under ignored `.data/`; same-named files receive stable non-path identities so source references cannot collide.
 - Strict Zod contracts validate semantic plans and persisted dashboards. Generation reuses the saved plan and cannot launch Claude.
 - Current verification: 12/12 Vitest tests pass, ESLint passes, and the Next.js production build completes. `/projects`, `/projects/demo`, and `/projects/new` return 200 from the built app; a fresh multipart CSV upload returns 201.
-- The synthetic fallback seed installs successfully. The 19-file Aurelia directory is within upload limits, but its one-run Claude interpretation still exceeds the bounded 180-second seed timeout; this remains the only known MVP acceptance blocker.
+- Both seed paths now complete. The synthetic fallback installs without Claude; the generic Aurelia seed processed 19 files/19 tables into four validated KPIs using a bounded five-turn Claude run and persisted a ready project.
 - Review cards now expose source fields, formula, confidence, estimated field coverage, rationale, and exclusions. Project cards show source/KPI counts, charts render their declared bar/line/funnel type, and dashboard assessment text is assembled deterministically from calculated results.
 - The plan's intermediate red/green and per-task commit checkpoints were intentionally skipped under the build-first/time-saving instruction; implementation evidence is recorded at the final integrated checkpoint.
 - Windows is the implementation and test platform. macOS remains designed for portability but explicitly not smoke-tested.
@@ -39,7 +39,7 @@ The former parallel workstreams are integrated through one strictly validated `D
 - Use one bounded `claude -p` subprocess per analysis run for semantic interpretation, KPI proposals, IMM coverage, and candidate framework tags.
 - Invoke Claude Code with an argument array and `shell: false`; never interpolate user or file content into a command string.
 - Give Claude Code only the built-in Read tool in an isolated run directory containing redacted profiles, never raw uploads or the repository.
-- Require `--json-schema`, `--safe-mode`, `--no-session-persistence`, `--max-turns 3`, a configured budget, and a timeout.
+- Require `--json-schema`, `--safe-mode`, `--no-session-persistence`, configurable `--max-turns` (default 5, maximum 8), a configured budget, and a timeout.
 - Support Windows and macOS: use TypeScript scripts, `node:path`, `node:os`, native argument-array subprocesses, and no shell-specific application commands.
 - Never execute model-generated code, SQL, formulas, or chart configuration.
 - Calculate KPI values, coverage, warnings, and chart series deterministically from parsed rows.
@@ -235,7 +235,7 @@ Resolve the executable from `CLAUDE_PATH`, then `PATH`, then `path.join(os.homed
   "-p", "Read analysis-input.json and return the requested semantic plan.",
   "--output-format", "json",
   "--json-schema", JSON.stringify(jsonSchema),
-  "--max-turns", "3",
+  "--max-turns", "5",
   "--max-budget-usd", configuredBudget,
   "--tools", "Read",
   "--permission-mode", "dontAsk",
@@ -516,7 +516,7 @@ git status --short
 
 Expected: no YSI-specific application logic; `.data` ignored; no supplied dataset staged.
 
-- [ ] **Step 4: Run final verification** — tests/lint/build and fallback seed pass; Aurelia seed remains blocked by bounded Claude timeout.
+- [x] **Step 4: Run final verification** — tests/lint/build, fallback seed, and the 19-file Aurelia seed pass.
 
 ```powershell
 bun test

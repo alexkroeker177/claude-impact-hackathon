@@ -214,7 +214,7 @@ The server launches Claude Code as a shell-free subprocess equivalent to:
 claude -p "Read analysis-input.json and return the requested semantic plan." `
   --output-format json `
   --json-schema "<semantic-plan-schema>" `
-  --max-turns 3 `
+  --max-turns 5 `
   --max-budget-usd "<configured-budget>" `
   --tools Read `
   --permission-mode dontAsk `
